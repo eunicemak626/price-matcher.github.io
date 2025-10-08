@@ -94,7 +94,7 @@ function App() {
         // Apply deductions
         const deductedPrice = applyDeductions(matchedPrice.price, remarks)
         
-        results.push(`${product.lineNum} ${deductedPrice}`)
+        results.push(`${product.lineNum}\t${deductedPrice}`)
         matchedCount++
         lastCategory = product.category
       } else {
