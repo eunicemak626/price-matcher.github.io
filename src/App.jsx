@@ -14,7 +14,34 @@ function App() {
   const [isLocked, setIsLocked] = useState(false)
   const [lockedResult, setLockedResult] = useState('')
 
-
+  // Apply deductions based on remarks
+  const applyDeductions = (basePrice, remarks) => {
+    let finalPrice = basePrice
+    
+    // Basic deduction: 15 yuan accessory fee
+    finalPrice -= 15
+    
+    // Keyword-based deductions
+    const deductions = {
+      '小花': -100,
+      '花機': -150,
+      '大花': -350,
+      '舊機': -350,
+      '低保': -100,
+      '過保': -200,
+      '黑機': -200,
+      '配置鎖': -300
+    }
+    
+    // Check for keywords in remarks
+    for (const [keyword, amount] of Object.entries(deductions)) {
+      if (remarks.includes(keyword)) {
+        finalPrice += amount  // amount is already negative
+      }
+    }
+    
+    return finalPrice
+  }
 
   // Process locked mode matching with deductions
   const processLockedMatching = () => {
