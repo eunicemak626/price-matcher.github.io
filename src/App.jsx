@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
-import { Check } from 'lucide-react'
+import { Check, Trash2, Lock, Unlock } from 'lucide-react'
 import './App.css'
 
 function App() {
@@ -11,6 +11,72 @@ function App() {
   const [matchResult, setMatchResult] = useState('')
   const [stats, setStats] = useState({ matched: 0, unmatched: 0, total: 0 })
   const [copied, setCopied] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
+  const [lockedResult, setLockedResult] = useState('')
+
+
+
+  // Process locked mode matching with deductions
+  const processLockedMatching = () => {
+    const prices = parsePriceList(priceList)
+    const products = parseProductList(productList)
+    
+    const results = []
+    let matchedCount = 0
+    let unmatchedCount = 0
+    let lastCategory = null
+
+    for (const product of products) {
+      const productCapacity = extractCapacity(product.description)
+      const requiresCapacity = needsCapacityMatch(product.description)
+      const requiresColor = needsColorMatch(product.category)
+
+      const productModel = extractModelName(product.description, !requiresColor)
+      
+      let matchedPrice = null
+
+      for (const price of prices) {
+        if (price.category !== product.category) continue
+
+        const priceModel = extractModelName(price.model, !requiresColor)
+        
+        if (!modelsMatch(productModel, priceModel)) {
+          continue
+        }
+        
+        if (requiresCapacity) {
+          if (price.capacity && productCapacity && price.capacity !== productCapacity) {
+            continue
+          }
+        }
+
+        matchedPrice = price
+        break
+      }
+
+      if (matchedPrice !== null) {
+        // Add double line break between different categories
+        if (lastCategory !== null && lastCategory !== product.category) {
+          results.push('')  // Empty line
+          results.push('')  // Second empty line
+        }
+        
+        // Use remarks from parsed product data (B欄備註)
+        const remarks = product.remarks || ''
+        
+        // Apply deductions
+        const deductedPrice = applyDeductions(matchedPrice.price, remarks)
+        
+        results.push(`${product.lineNum} ${deductedPrice}`)
+        matchedCount++
+        lastCategory = product.category
+      } else {
+        unmatchedCount++
+      }
+    }
+
+    setLockedResult(results.join('\n'))
+  }
 
   // Auto-match when both inputs have content
   useEffect(() => {
@@ -18,10 +84,14 @@ function App() {
       // Delay to avoid too frequent updates
       const timer = setTimeout(() => {
         matchProducts()
+        // Also process locked matching if locked mode is enabled
+        if (isLocked) {
+          processLockedMatching()
+        }
       }, 500)
       return () => clearTimeout(timer)
     }
-  }, [priceList, productList])
+  }, [priceList, productList, isLocked])
 
   // Parse price list into structured data
   const parsePriceList = (text) => {
@@ -121,17 +191,20 @@ function App() {
       
       if (parts.length >= 2) {
         const lineNum = parts[0].trim()
+        let remarks = ''
         let description = ''
         
         if (parts.length === 2) {
           description = parts[1].trim()
         } else if (parts.length >= 3) {
+          remarks = parts[1].trim() // B欄備註
           description = parts[2].trim()
         }
         
         if (lineNum && description) {
           products.push({
             lineNum,
+            remarks,
             description,
             category: currentCategory
           })
@@ -267,6 +340,10 @@ function App() {
     })
   }
 
+
+
+
+
   // Copy result to clipboard with button feedback
   const copyToClipboard = () => {
     navigator.clipboard.writeText(matchResult)
@@ -285,12 +362,16 @@ function App() {
     URL.revokeObjectURL(url)
   }
 
-  // Clear all inputs
+  // Clear all inputs and scroll to top
   const clearAll = () => {
     setPriceList('')
     setProductList('')
     setMatchResult('')
+    setLockedResult('')
     setStats({ matched: 0, unmatched: 0, total: 0 })
+    setIsLocked(false)
+    // Scroll to top of the page
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
@@ -313,12 +394,43 @@ function App() {
           {/* Price List Input */}
           <Card className="border border-gray-300">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-medium text-gray-700">
-                第一步：輸入價格列表
-              </CardTitle>
-              <CardDescription className="text-sm text-gray-500">
-                貼上您的 PRICE LIST（格式：類別、型號、容量/Part Number、數量、價格）
-              </CardDescription>
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg font-medium text-gray-700">
+                    第一步：輸入價格列表
+                  </CardTitle>
+                  <CardDescription className="text-sm text-gray-500">
+                    貼上您的 PRICE LIST（格式：類別、型號、容量/Part Number、數量、價格）
+                  </CardDescription>
+                </div>
+                <Button 
+                  onClick={() => {
+                    setIsLocked(!isLocked)
+                    if (!isLocked && priceList.trim() && productList.trim()) {
+                      // If turning on locked mode and both inputs have content, process immediately
+                      setTimeout(() => processLockedMatching(), 100)
+                    }
+                  }}
+                  variant={isLocked ? "default" : "outline"}
+                  size="sm"
+                  className={isLocked ? 
+                    'bg-blue-600 hover:bg-blue-700 text-white' : 
+                    'border-gray-300 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700'
+                  }
+                >
+                  {isLocked ? (
+                    <>
+                      <Lock className="w-4 h-4 mr-2" />
+                      有鎖
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-4 h-4 mr-2" />
+                      有鎖
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <Textarea
@@ -364,21 +476,32 @@ function App() {
                     系統已完成自動匹配
                   </CardDescription>
                 </div>
-                <Button 
-                  onClick={copyToClipboard} 
-                  variant="outline" 
-                  size="sm"
-                  className={copied ? 'bg-green-50 border-green-600 text-green-700' : 'border-gray-300'}
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-4 h-4 mr-2" />
-                      已複製
-                    </>
-                  ) : (
-                    '複製結果'
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={copyToClipboard} 
+                    variant="outline" 
+                    size="sm"
+                    className={copied ? 'bg-green-50 border-green-600 text-green-700' : 'border-gray-300'}
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        已複製
+                      </>
+                    ) : (
+                      '複製結果'
+                    )}
+                  </Button>
+                  <Button 
+                    onClick={clearAll} 
+                    variant="outline" 
+                    size="sm"
+                    className="border-gray-300 hover:bg-red-50 hover:border-red-300 hover:text-red-700"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    清除
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -386,6 +509,40 @@ function App() {
                 value={matchResult}
                 readOnly
                 className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none"
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Locked Mode Results */}
+        {isLocked && lockedResult && (
+          <Card className="border border-blue-300 bg-blue-50/30 mt-6">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg font-medium text-blue-700 flex items-center">
+                    <Lock className="w-5 h-5 mr-2" />
+                    有鎖模式扣減結果
+                  </CardTitle>
+                  <CardDescription className="text-sm text-blue-600">
+                    已套用配件費用扣減（-15元）及備註關鍵字扣減
+                  </CardDescription>
+                </div>
+                <Button 
+                  onClick={() => navigator.clipboard.writeText(lockedResult)} 
+                  variant="outline" 
+                  size="sm"
+                  className="border-blue-300 hover:bg-blue-100"
+                >
+                  複製扣減結果
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={lockedResult}
+                readOnly
+                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-blue-300 resize-none"
               />
             </CardContent>
           </Card>
