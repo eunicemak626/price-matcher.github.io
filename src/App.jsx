@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
-import { Badge } from '@/components/ui/badge.jsx'
-import { Download, Upload, CheckCircle2, XCircle, Info, Check } from 'lucide-react'
+import { Check } from 'lucide-react'
 import './App.css'
 
 function App() {
@@ -295,7 +294,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-white p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -307,39 +306,24 @@ function App() {
           </p>
         </div>
 
-        {/* Info Banner */}
-        <div className="mb-6 p-4 bg-gray-100 border border-gray-300 rounded-lg flex items-start gap-3">
-          <Info className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-gray-700">
-            <strong>匹配規則：</strong>
-            <ul className="mt-1 space-y-1">
-              <li>• iPhone 和 iPad 需要同時匹配型號和容量</li>
-              <li>• LOCKED 類別：不需要匹配顏色（任何顏色都可以）</li>
-              <li>• UNLOCKED 和其他類別：需要匹配顏色</li>
-              <li>• 其他產品（MacBook, Apple Watch, AirPods 等）只需匹配型號</li>
-              <li>• 系統會自動忽略 Part Number（如 MRYN3LL, MXP93LL）</li>
-              <li>• 產品列表支援備注欄位（Column B 會被自動忽略）</li>
-            </ul>
-          </div>
-        </div>
+
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Price List Input */}
-          <Card className="shadow-md">
-            <CardHeader className="bg-gray-700 text-white rounded-t-lg">
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="w-5 h-5" />
+          <Card className="border border-gray-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-medium text-gray-700">
                 第一步：輸入價格列表
               </CardTitle>
-              <CardDescription className="text-gray-300">
+              <CardDescription className="text-sm text-gray-500">
                 貼上您的 PRICE LIST（格式：類別、型號、容量/Part Number、數量、價格）
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent>
               <Textarea
                 placeholder="UNLOCKED N/A&#10;IPHONE 15 BLACK&#9;128GB&#9;3&#9;3700"
-                className="min-h-[400px] font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-gray-400 bg-white border-gray-300"
+                className="h-[300px] overflow-y-auto font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-gray-400 bg-white border-gray-300 resize-none"
                 value={priceList}
                 onChange={(e) => setPriceList(e.target.value)}
               />
@@ -347,20 +331,19 @@ function App() {
           </Card>
 
           {/* Product List Input */}
-          <Card className="shadow-md">
-            <CardHeader className="bg-gray-700 text-white rounded-t-lg">
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="w-5 h-5" />
+          <Card className="border border-gray-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-medium text-gray-700">
                 第二步：輸入產品列表
               </CardTitle>
-              <CardDescription className="text-gray-300">
+              <CardDescription className="text-sm text-gray-500">
                 貼上您的 LIST（格式：行號、產品描述，支援備注欄）
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent>
               <Textarea
                 placeholder="UNLOCKED N/A&#10;22&#9;IPHONE 16E 128GB BLACK&#10;23&#9;IPHONE 16E 128GB BLACK"
-                className="min-h-[400px] font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-gray-400 bg-white border-gray-300"
+                className="h-[300px] overflow-y-auto font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-gray-400 bg-white border-gray-300 resize-none"
                 value={productList}
                 onChange={(e) => setProductList(e.target.value)}
               />
@@ -370,67 +353,39 @@ function App() {
 
         {/* Results */}
         {matchResult && (
-          <Card className="shadow-md">
-            <CardHeader className="bg-gray-700 text-white rounded-t-lg">
+          <Card className="border border-gray-300">
+            <CardHeader className="pb-3">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5" />
+                  <CardTitle className="text-lg font-medium text-gray-700">
                     匹配結果
                   </CardTitle>
-                  <CardDescription className="text-gray-300">
+                  <CardDescription className="text-sm text-gray-500">
                     系統已完成自動匹配
                   </CardDescription>
                 </div>
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={copyToClipboard} 
-                    variant="secondary" 
-                    size="sm"
-                    className={copied ? 'bg-green-600 text-white hover:bg-green-700' : ''}
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-4 h-4 mr-2" />
-                        已複製
-                      </>
-                    ) : (
-                      '複製結果'
-                    )}
-                  </Button>
-                  <Button onClick={downloadResult} variant="secondary" size="sm">
-                    <Download className="w-4 h-4 mr-2" />
-                    下載
-                  </Button>
-                </div>
+                <Button 
+                  onClick={copyToClipboard} 
+                  variant="outline" 
+                  size="sm"
+                  className={copied ? 'bg-green-50 border-green-600 text-green-700' : 'border-gray-300'}
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      已複製
+                    </>
+                  ) : (
+                    '複製結果'
+                  )}
+                </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-6">
-              {/* Stats */}
-              <div className="flex flex-wrap gap-3 mb-4">
-                <Badge variant="default" className="text-sm py-2 px-4 bg-gray-700">
-                  總數: {stats.total}
-                </Badge>
-                <Badge variant="default" className="text-sm py-2 px-4 bg-green-600">
-                  <CheckCircle2 className="w-4 h-4 mr-1" />
-                  已匹配: {stats.matched}
-                </Badge>
-                <Badge variant="destructive" className="text-sm py-2 px-4">
-                  <XCircle className="w-4 h-4 mr-1" />
-                  未匹配: {stats.unmatched}
-                </Badge>
-                {stats.matched > 0 && (
-                  <Badge variant="default" className="text-sm py-2 px-4 bg-gray-600">
-                    成功率: {((stats.matched / stats.total) * 100).toFixed(1)}%
-                  </Badge>
-                )}
-              </div>
-
-              {/* Result Text */}
+            <CardContent>
               <Textarea
                 value={matchResult}
                 readOnly
-                className="min-h-[400px] font-mono text-sm bg-gray-50"
+                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none"
               />
             </CardContent>
           </Card>
