@@ -5,6 +5,7 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/price-matcher/',
   plugins: [react(),tailwindcss()],
   resolve: {
     alias: {
