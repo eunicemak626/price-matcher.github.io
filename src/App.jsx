@@ -56,15 +56,16 @@ function App() {
     for (const product of products) {
       const productCapacity = extractCapacity(product.description)
       const requiresCapacity = needsCapacityMatch(product.description)
-      const requiresColor = needsColorMatch(product.category)
-
-      const productModel = extractModelName(product.description, !requiresColor)
       
       let matchedPrice = null
 
       for (const price of prices) {
         if (price.category !== product.category) continue
 
+        // Check if this specific price item needs color matching
+        const requiresColor = needsColorMatch(product.category, price.model)
+        
+        const productModel = extractModelName(product.description, !requiresColor)
         const priceModel = extractModelName(price.model, !requiresColor)
         
         if (!modelsMatch(productModel, priceModel)) {
@@ -268,14 +269,21 @@ function App() {
   }
 
   // Check if category requires color matching
-  const needsColorMatch = (category) => {
+  const needsColorMatch = (category, priceModel = '') => {
     const cat = category.toUpperCase()
-    // UNLOCKED categories need color matching
-    // LOCKED categories don't need color matching
-    // DEFAULT category doesn't need color matching
+    const model = priceModel.toUpperCase()
+    
+    // UNLOCKED categories always need color matching
     if (cat.includes('UNLOCKED')) return true
-    if (cat.includes('LOCKED')) return false
+    
+    // LOCKED categories: only match color if model is N/A
+    if (cat.includes('LOCKED')) {
+      return model === 'N/A'
+    }
+    
+    // DEFAULT category doesn't need color matching
     if (cat === 'DEFAULT') return false
+    
     // Other categories need color matching by default
     return true
   }
@@ -318,15 +326,16 @@ function App() {
     for (const product of products) {
       const productCapacity = extractCapacity(product.description)
       const requiresCapacity = needsCapacityMatch(product.description)
-      const requiresColor = needsColorMatch(product.category)
-
-      const productModel = extractModelName(product.description, !requiresColor)
       
       let matchedPrice = null
 
       for (const price of prices) {
         if (price.category !== product.category) continue
 
+        // Check if this specific price item needs color matching
+        const requiresColor = needsColorMatch(product.category, price.model)
+        
+        const productModel = extractModelName(product.description, !requiresColor)
         const priceModel = extractModelName(price.model, !requiresColor)
         
         if (!modelsMatch(productModel, priceModel)) {
