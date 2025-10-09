@@ -276,9 +276,9 @@ function App() {
     // UNLOCKED categories always need color matching
     if (cat.includes('UNLOCKED')) return true
     
-    // LOCKED categories: only match color if model is N/A
+    // LOCKED categories: only match color if model is N/A or ACT
     if (cat.includes('LOCKED')) {
-      return model === 'N/A'
+      return model === 'N/A' || model === 'ACT'
     }
     
     // DEFAULT category doesn't need color matching
@@ -291,7 +291,7 @@ function App() {
   // Check if product needs capacity matching
   const needsCapacityMatch = (description) => {
     const upper = description.toUpperCase()
-    return upper.includes('IPHONE') || upper.includes('IPAD') || upper.includes('MACBOOK')
+    return upper.includes('IPHONE') || upper.includes('IPAD')
   }
 
   // Check if two model names match exactly
