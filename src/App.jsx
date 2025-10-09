@@ -73,7 +73,9 @@ function App() {
         }
         
         if (requiresCapacity) {
-          if (price.capacity && productCapacity && price.capacity !== productCapacity) {
+          // If price.capacity is empty, extract from price.model
+          const priceCapacity = price.capacity || extractCapacity(price.model)
+          if (priceCapacity && productCapacity && priceCapacity !== productCapacity) {
             continue
           }
         }
@@ -343,7 +345,9 @@ function App() {
         }
         
         if (requiresCapacity) {
-          if (price.capacity && productCapacity && price.capacity !== productCapacity) {
+          // If price.capacity is empty, extract from price.model
+          const priceCapacity = price.capacity || extractCapacity(price.model)
+          if (priceCapacity && productCapacity && priceCapacity !== productCapacity) {
             continue
           }
         }
