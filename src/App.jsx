@@ -283,7 +283,7 @@ function App() {
   // Check if product needs capacity matching
   const needsCapacityMatch = (description) => {
     const upper = description.toUpperCase()
-    return upper.includes('IPHONE') || upper.includes('IPAD')
+    return upper.includes('IPHONE') || upper.includes('IPAD') || upper.includes('MACBOOK')
   }
 
   // Check if two model names match exactly
