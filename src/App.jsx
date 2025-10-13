@@ -137,7 +137,8 @@ function App() {
       const upperLine = trimmed.toUpperCase()
       const isHeader = (upperLine.includes('CAP') || upperLine.includes('CAPACITY')) && 
           (upperLine.includes('QTY') || upperLine.includes('QUANTITY')) && 
-          (upperLine.includes('HKD') || upperLine.includes('PRICE'))
+          (upperLine.includes('HKD') || upperLine.includes('USD') || upperLine.includes('CNY') || 
+           upperLine.includes('RMB') || upperLine.includes('PRICE'))
       
       if (isHeader) {
         // Extract category from first column if present
@@ -148,7 +149,10 @@ function App() {
           if (firstCol === firstCol.toUpperCase() && 
               !firstCol.includes('CAP') && 
               !firstCol.includes('QTY') && 
-              !firstCol.includes('HKD')) {
+              !firstCol.includes('HKD') && 
+              !firstCol.includes('USD') && 
+              !firstCol.includes('CNY') && 
+              !firstCol.includes('RMB')) {
             currentCategory = firstCol
           }
         }
