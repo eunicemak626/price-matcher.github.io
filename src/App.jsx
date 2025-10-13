@@ -385,10 +385,39 @@ function App() {
 
 
   // Copy result to clipboard with button feedback
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(matchResult)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const copyToClipboard = async () => {
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(matchResult)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea')
+        textArea.value = matchResult
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-999999px'
+        textArea.style.top = '-999999px'
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        
+        try {
+          document.execCommand('copy')
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+        } catch (err) {
+          console.error('Fallback copy failed:', err)
+          alert('複製失敗，請手動選擇並複製結果')
+        }
+        
+        document.body.removeChild(textArea)
+      }
+    } catch (err) {
+      console.error('Copy failed:', err)
+      alert('複製失敗，請手動選擇並複製結果')
+    }
   }
 
   // Download result as text file
