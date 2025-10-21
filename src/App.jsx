@@ -189,8 +189,9 @@ function App() {
         continue
       }
 
-      // Check if it's a category line (no tabs, all uppercase, not a header)
-      if (!trimmed.includes('\t') && trimmed === trimmed.toUpperCase()) {
+      // Check if it's a category line (no tabs, all uppercase, not a header), or a known Chinese category
+      const chineseCategories = ['IPAD 原封沒激活', 'IPAD 激活全套有鎖']
+      if ((!trimmed.includes('\t') && trimmed === trimmed.toUpperCase()) || chineseCategories.includes(trimmed)) {
         currentCategory = trimmed
         continue
       }
@@ -245,7 +246,8 @@ function App() {
       }
 
       // Check if it's a category line
-      if (!trimmed.includes('\t') && trimmed === trimmed.toUpperCase()) {
+      const chineseCategories = ['IPAD 原封沒激活', 'IPAD 激活全套有鎖']
+      if ((!trimmed.includes('\t') && trimmed === trimmed.toUpperCase()) || chineseCategories.includes(trimmed)) {
         currentCategory = trimmed
         continue
       }
