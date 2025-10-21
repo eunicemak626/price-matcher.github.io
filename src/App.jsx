@@ -165,10 +165,10 @@ function App() {
 
       // Skip header rows (CAP QTY HKD, etc.) - check this FIRST
       const upperLine = trimmed.toUpperCase()
-      const isHeader = (upperLine.includes('CAP') || upperLine.includes('CAPACITY')) && 
-          (upperLine.includes('QTY') || upperLine.includes('QUANTITY')) && 
+      const isHeader = (upperLine.includes('CAP') || upperLine.includes('CAPACITY') || upperLine.includes('容量')) && 
+          (upperLine.includes('QTY') || upperLine.includes('QUANTITY') || upperLine.includes('數量')) && 
           (upperLine.includes('HKD') || upperLine.includes('USD') || upperLine.includes('CNY') || 
-           upperLine.includes('RMB') || upperLine.includes('PRICE'))
+           upperLine.includes('RMB') || upperLine.includes('PRICE') || upperLine.includes('人民幣'))
       
       if (isHeader) {
         // Extract category from first column if present
