@@ -199,7 +199,7 @@ function App() {
       }
 
       // Parse price line
-      const parts = trimmed.split('\t')
+      const parts = trimmed.split(/\s+/)
       if (parts.length >= 3) {
         const model = parts[0].trim()
         const secondCol = parts[1].trim()
