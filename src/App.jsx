@@ -222,7 +222,7 @@ function App() {
 
   const needsCapacityMatch = (description) => {
     const upper = description.toUpperCase()
-    return upper.includes('IPHONE') || upper.includes('IPAD') || upper.includes('MACBOOK')
+    return /\b\d+(?:GB|TB)\b/i.test(description)
   }
 
   const modelsMatch = (productModel, priceModel) => {
