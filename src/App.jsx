@@ -13,49 +13,9 @@ function App() {
   const [copied, setCopied] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const [lockedResult, setLockedResult] = useState('')
-  
-  // 新增狀態：記錄上次複製的內容，防止重複觸發
-  const [lastCopied, setLastCopied] = useState('')
-  const [lastLockedCopied, setLastLockedCopied] = useState('')
 
   // ==========================================
-  // 1. 通用複製函式 (含備援方案 - 你的新代碼)
-  // ==========================================
-  const safeCopyText = async (text) => {
-    if (!text || !text.trim()) return false;
-
-    // 優先使用 Clipboard API
-    if (navigator.clipboard && window.isSecureContext) {
-      try {
-        await navigator.clipboard.writeText(text);
-        return true;
-      } catch (e) {
-        console.warn('Clipboard API failed, fallback to legacy copy.', e);
-      }
-    }
-
-    // 備援：execCommand（舊法）
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      // 避免影響布局
-      textarea.style.position = 'fixed';
-      textarea.style.top = '-1000px';
-      textarea.style.left = '-1000px';
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      return ok;
-    } catch (e) {
-      console.error('Fallback copy failed:', e);
-      return false;
-    }
-  };
-
-  // ==========================================
-  // 核心解析邏輯 (完全保留原有邏輯，未做任何修改)
+  // 核心解析邏輯 (保持不變)
   // ==========================================
 
   const parsePriceList = (text) => {
@@ -63,6 +23,7 @@ function App() {
     const prices = []
     let currentCategory = 'DEFAULT'
 
+    // 定義標題關鍵字
     const headerKeywords = [
       'CAP', 'CAPACITY', '容量', 
       'QTY', 'QUANTITY', '數量', 
@@ -74,6 +35,8 @@ function App() {
       if (!trimmed) continue
 
       const upperLine = trimmed.toUpperCase()
+
+      // 1. 檢查是否為標題行
       let firstKeywordIndex = -1
       
       for (const kw of headerKeywords) {
@@ -87,10 +50,13 @@ function App() {
 
       if (firstKeywordIndex !== -1) {
         const potentialCategory = trimmed.substring(0, firstKeywordIndex).trim()
-        if (potentialCategory.length > 0) currentCategory = potentialCategory
+        if (potentialCategory.length > 0) {
+          currentCategory = potentialCategory
+        }
         continue
       }
 
+      // 2. 檢查是否為純類別行
       const chineseCategories = ['IPAD 原封沒激活', 'IPAD 激活全套有鎖', 'LOCKED', 'UNLOCKED']
       const isChineseCategory = chineseCategories.some(cat => upperLine.includes(cat))
       
@@ -103,33 +69,56 @@ function App() {
         }
       }
 
+      // 3. 解析數據行
       const parts = trimmed.split(/\s+/)
+      
       if (parts.length >= 3) {
         let price = 0
         let qty = 0
         let capacity = ''
-        
-        if (!isNaN(parseFloat(parts[parts.length - 1]))) price = parseFloat(parts[parts.length - 1])
-        if (parts.length >= 2 && !isNaN(parseInt(parts[parts.length - 2]))) qty = parseInt(parts[parts.length - 2])
+        let modelParts = []
+
+        if (!isNaN(parseFloat(parts[parts.length - 1]))) {
+            price = parseFloat(parts[parts.length - 1])
+        }
+
+        if (parts.length >= 2 && !isNaN(parseInt(parts[parts.length - 2]))) {
+            qty = parseInt(parts[parts.length - 2])
+        }
 
         let modelEndIndex = parts.length - 3
         const secondToLastPart = parts[parts.length - 3]
         if (secondToLastPart) {
             const isCapacity = secondToLastPart.toUpperCase().match(/\d+(GB|TB)$/)
             const isPartNum = /^[A-Z0-9]{6,10}$/i.test(secondToLastPart)
+            
             if (isCapacity || isPartNum) {
                 capacity = secondToLastPart
                 modelEndIndex = parts.length - 4
             }
         }
-        const model = parts.slice(0, modelEndIndex + 1).join(' ')
+
+        modelParts = parts.slice(0, modelEndIndex + 1)
+        const model = modelParts.join(' ')
+
         if (model && price > 0) {
-            prices.push({ category: currentCategory, model, capacity, qty, price })
+            prices.push({
+              category: currentCategory,
+              model: model,
+              capacity: capacity,
+              qty: qty,
+              price: price
+            })
         }
       }
     }
+
     return prices
   }
+
+  // ==========================================
+  // 輔助功能函數
+  // ==========================================
 
   const parseProductList = (text) => {
     const lines = text.trim().split('\n')
@@ -139,8 +128,11 @@ function App() {
     for (const line of lines) {
       const trimmed = line.trim()
       if (!trimmed) continue
+
       const upperLine = trimmed.toUpperCase()
-      if (upperLine.includes('CAP') && upperLine.includes('QTY') && upperLine.includes('HKD')) continue
+      if (upperLine.includes('CAP') && upperLine.includes('QTY') && upperLine.includes('HKD')) {
+        continue
+      }
 
       const chineseCategories = ['IPAD 原封沒激活', 'IPAD 激活全套有鎖']
       if ((!trimmed.includes('\t') && trimmed === trimmed.toUpperCase()) || chineseCategories.includes(trimmed)) {
@@ -151,89 +143,152 @@ function App() {
       const parts = trimmed.split('\t')
       if (parts.length >= 2) {
         const lineNum = parts[0].trim()
-        let remarks = '', description = ''
-        if (parts.length === 2) description = parts[1].trim()
-        else if (parts.length >= 3) { remarks = parts[1].trim(); description = parts[2].trim() }
+        let remarks = ''
+        let description = ''
         
-        if (lineNum && description) products.push({ lineNum, remarks, description, category: currentCategory })
+        if (parts.length === 2) {
+          description = parts[1].trim()
+        } else if (parts.length >= 3) {
+          remarks = parts[1].trim()
+          description = parts[2].trim()
+        }
+        
+        if (lineNum && description) {
+          products.push({
+            lineNum,
+            remarks,
+            description,
+            category: currentCategory
+          })
+        }
       }
     }
     return products
   }
 
-  const extractCapacity = (desc) => {
-    const match = desc.match(/\b(\d+(?:GB|TB))\b/i)
-    return match ? match[1].toUpperCase() : ''
+  const extractCapacity = (description) => {
+    const capacityMatch = description.match(/\b(\d+(?:GB|TB))\b/i)
+    return capacityMatch ? capacityMatch[1].toUpperCase() : ''
   }
 
   const extractModelName = (text, removeColor = false) => {
     let model = text.replace(/\b\d+(?:GB|TB)\b/gi, '').trim()
+    
     if (removeColor) {
-      const colors = ['BLACK', 'WHITE', 'BLUE', 'ORANGE', 'SILVER', 'GOLD', 'NATURAL', 'DESERT', 'PINK', 'ULTRAMARINE', 'GRAY', 'GREY', 'GREEN', 'RED', 'PURPLE', 'YELLOW', 'LAVENDER', 'SAGE', 'MIDNIGHT', 'STARLIGHT', 'TITANIUM', 'SPACE', 'ROSE', 'CORAL', 'TEAL', 'INDIGO', 'CRIMSON', 'VZ']
+      const colors = ['BLACK', 'WHITE', 'BLUE', 'ORANGE', 'SILVER', 'GOLD', 'NATURAL', 'DESERT', 
+                      'PINK', 'ULTRAMARINE', 'GRAY', 'GREY', 'GREEN', 'RED', 'PURPLE', 
+                      'YELLOW', 'LAVENDER', 'SAGE', 'MIDNIGHT', 'STARLIGHT', 'TITANIUM',
+                      'SPACE', 'ROSE', 'CORAL', 'TEAL', 'INDIGO', 'CRIMSON', 'VZ']
+      
       for (const color of colors) {
         const regex = new RegExp(`\\b${color}\\b\\s*$`, 'i')
         model = model.replace(regex, '').trim()
       }
     }
+    
     return model.toUpperCase().replace(/\s+/g, ' ')
   }
 
   const needsColorMatch = (category, priceModel = '') => {
     const cat = category.toUpperCase()
     if (cat.includes('UNLOCKED')) return true
-    if (cat.includes('LOCKED')) return cat.includes('N/A') || cat.includes('ACT')
+    if (cat.includes('LOCKED')) {
+      return cat.includes('N/A') || cat.includes('ACT')
+    }
     if (cat === 'DEFAULT') return false
     return true
   }
 
-  const modelsMatch = (p, pr) => {
-    p = p.toUpperCase().trim(); pr = pr.toUpperCase().trim()
+  const needsCapacityMatch = (description) => {
+    return /\b\d+(?:GB|TB)\b/i.test(description)
+  }
+
+  const modelsMatch = (productModel, priceModel) => {
+    const p = productModel.toUpperCase().trim()
+    const pr = priceModel.toUpperCase().trim()
+    
     if (p === pr) return true
+    
     const pWords = p.split(/\s+/).filter(w => w.length > 0)
     const prWords = pr.split(/\s+/).filter(w => w.length > 0)
+    
     if (pWords.length !== prWords.length) return false
-    for (let i = 0; i < pWords.length; i++) if (pWords[i] !== prWords[i]) return false
+    
+    for (let i = 0; i < pWords.length; i++) {
+      if (pWords[i] !== prWords[i]) return false
+    }
     return true
   }
 
   const applyDeductions = (basePrice, remarks) => {
-    let finalPrice = basePrice - 15
-    const deductions = { '小花': -100, '花機': -150, '大花': -350, '舊機': -350, '低保': -100, '過保': -200, '黑機': -200, '配置鎖': -300 }
-    for (const [key, val] of Object.entries(deductions)) if (remarks.includes(key)) finalPrice += val
+    let finalPrice = basePrice
+    finalPrice -= 15 // Basic deduction
+    
+    const deductions = {
+      '小花': -100, '花機': -150, '大花': -350, '舊機': -350,
+      '低保': -100, '過保': -200, '黑機': -200, '配置鎖': -300
+    }
+    
+    for (const [keyword, amount] of Object.entries(deductions)) {
+      if (remarks.includes(keyword)) {
+        finalPrice += amount
+      }
+    }
     return finalPrice
   }
+
+  // ==========================================
+  // 主匹配邏輯
+  // ==========================================
 
   const matchProducts = () => {
     const prices = parsePriceList(priceList)
     const products = parseProductList(productList)
+    
     const results = []
-    let matchedCount = 0, unmatchedCount = 0, lastCategory = null
+    let matchedCount = 0
+    let unmatchedCount = 0
+    let lastCategory = null
 
     for (const product of products) {
-      const pCap = extractCapacity(product.description)
-      const reqCap = /\b\d+(?:GB|TB)\b/i.test(product.description)
+      const productCapacity = extractCapacity(product.description)
+      const requiresCapacity = needsCapacityMatch(product.description)
+      
       let matchedPrice = null
 
       for (const price of prices) {
         if (price.category !== product.category) continue
-        const reqColor = needsColorMatch(product.category, price.model)
-        const pModel = extractModelName(product.description, !reqColor)
-        const prModel = extractModelName(price.model, !reqColor)
+        const requiresColor = needsColorMatch(product.category, price.model)
         
-        if (!modelsMatch(pModel, prModel)) continue
-        if (reqCap) {
-          const prCap = price.capacity || extractCapacity(price.model)
-          if (prCap && pCap && prCap !== pCap) continue
+        const productModel = extractModelName(product.description, !requiresColor)
+        const priceModel = extractModelName(price.model, !requiresColor)
+        
+        if (!modelsMatch(productModel, priceModel)) continue
+        
+        if (requiresCapacity) {
+          const priceCapacity = price.capacity || extractCapacity(price.model)
+          if (priceCapacity && productCapacity && priceCapacity !== productCapacity) {
+            continue
+          }
         }
-        matchedPrice = price; break
+
+        matchedPrice = price
+        break
       }
 
-      if (matchedPrice) {
-        if (lastCategory && lastCategory !== product.category) { results.push(''); results.push('') }
+      if (matchedPrice !== null) {
+        if (lastCategory !== null && lastCategory !== product.category) {
+          results.push('')
+          results.push('')
+        }
         results.push(`${product.lineNum}\t${matchedPrice.price}`)
-        matchedCount++; lastCategory = product.category
-      } else unmatchedCount++
+        matchedCount++
+        lastCategory = product.category
+      } else {
+        unmatchedCount++
+      }
     }
+
     setMatchResult(results.join('\n'))
     setStats({ matched: matchedCount, unmatched: unmatchedCount, total: products.length })
   }
@@ -245,28 +300,35 @@ function App() {
     let lastCategory = null
 
     for (const product of products) {
-      const pCap = extractCapacity(product.description)
-      const reqCap = /\b\d+(?:GB|TB)\b/i.test(product.description)
+      const productCapacity = extractCapacity(product.description)
+      const requiresCapacity = needsCapacityMatch(product.description)
       let matchedPrice = null
 
       for (const price of prices) {
         if (price.category !== product.category) continue
-        const reqColor = needsColorMatch(product.category, price.model)
-        const pModel = extractModelName(product.description, !reqColor)
-        const prModel = extractModelName(price.model, !reqColor)
+        const requiresColor = needsColorMatch(product.category, price.model)
+        const productModel = extractModelName(product.description, !requiresColor)
+        const priceModel = extractModelName(price.model, !requiresColor)
         
-        if (!modelsMatch(pModel, prModel)) continue
-        if (reqCap) {
-          const prCap = price.capacity || extractCapacity(price.model)
-          if (prCap && pCap && prCap !== pCap) continue
+        if (!modelsMatch(productModel, priceModel)) continue
+        
+        if (requiresCapacity) {
+          const priceCapacity = price.capacity || extractCapacity(price.model)
+          if (priceCapacity && productCapacity && priceCapacity !== productCapacity) continue
         }
-        matchedPrice = price; break
+
+        matchedPrice = price
+        break
       }
 
-      if (matchedPrice) {
-        if (lastCategory && lastCategory !== product.category) { results.push(''); results.push('') }
-        const deducted = applyDeductions(matchedPrice.price, product.remarks || '')
-        results.push(`${product.lineNum}\t${deducted}`)
+      if (matchedPrice !== null) {
+        if (lastCategory !== null && lastCategory !== product.category) {
+          results.push('')
+          results.push('')
+        }
+        const remarks = product.remarks || ''
+        const deductedPrice = applyDeductions(matchedPrice.price, remarks)
+        results.push(`${product.lineNum}\t${deductedPrice}`)
         lastCategory = product.category
       }
     }
@@ -274,8 +336,10 @@ function App() {
   }
 
   // ==========================================
-  // Effects & UI Handlers (更新部分)
+  // Effects & Handlers
   // ==========================================
+
+  // 1. 移除了自動複製的 useEffect，避免報錯
 
   useEffect(() => {
     if (priceList.trim() && productList.trim()) {
@@ -287,44 +351,6 @@ function App() {
     }
   }, [priceList, productList, isLocked])
 
-  // 2. 自動複製 Effect (去重與安全判斷)
-  useEffect(() => {
-    const text = matchResult?.trim();
-    if (!text) return;
-    if (text === lastCopied) return; // 內容相同就不重複複製
-
-    const timer = setTimeout(async () => {
-      const ok = await safeCopyText(text);
-      if (ok) {
-        setLastCopied(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } else {
-        console.warn('Auto copy not permitted; use the copy button.');
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [matchResult, lastCopied]);
-
-  // 4. 針對 lockedResult (可選，有鎖模式自動複製)
-  useEffect(() => {
-    if (!isLocked) return;
-    const text = lockedResult?.trim();
-    if (!text) return;
-    if (text === lastLockedCopied) return;
-
-    const timer = setTimeout(async () => {
-      const ok = await safeCopyText(text);
-      if (ok) {
-        setLastLockedCopied(text);
-        // 這裡不彈出 copied 狀態，避免與主結果提示混淆
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [isLocked, lockedResult, lastLockedCopied]);
-
   useEffect(() => {
     const handleKeyDown = (e) => { if (e.key === 'Escape') clearAll() }
     window.addEventListener('keydown', handleKeyDown)
@@ -332,29 +358,25 @@ function App() {
   }, [])
 
   const clearAll = () => {
-    setPriceList(''); setProductList(''); setMatchResult(''); setLockedResult('')
-    setLastCopied(''); setLastLockedCopied(''); // 重置複製記錄
-    setStats({ matched: 0, unmatched: 0, total: 0 }); setIsLocked(false)
+    setPriceList('')
+    setProductList('')
+    setMatchResult('')
+    setLockedResult('')
+    setStats({ matched: 0, unmatched: 0, total: 0 })
+    setIsLocked(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // 3. 手動複製按鈕 (使用通用函式)
   const copyToClipboard = async () => {
-    const text = matchResult?.trim();
-    if (!text) return;
-
-    const ok = await safeCopyText(text);
-    if (ok) {
-      setLastCopied(text); // 手動複製也更新記錄
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } else {
-      alert('複製失敗，請檢查瀏覽器權限或使用 HTTPS');
-    }
-  };
+    try {
+      await navigator.clipboard.writeText(matchResult)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) { alert('複製失敗') }
+  }
 
   // ==========================================
-  // UI Render (保留 !select-text)
+  // UI Render
   // ==========================================
 
   return (
@@ -362,7 +384,7 @@ function App() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-3">產品價格匹配系統</h1>
-          <p className="text-lg text-gray-600">自動匹配產品列表與價格 (增強複製穩定性)</p>
+          <p className="text-lg text-gray-600">自動匹配產品列表與價格 (手動選擇版)</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -427,7 +449,7 @@ function App() {
                   <CardTitle className="text-lg font-medium text-gray-700">匹配結果</CardTitle>
                   <CardDescription className="text-sm text-gray-500">
                     匹配: {stats.matched} / 未匹配: {stats.unmatched}
-                    {copied && <span className="ml-2 text-green-600 font-bold">(已自動複製)</span>}
+                    {copied && <span className="ml-2 text-green-600 font-bold">(已複製)</span>}
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
@@ -444,7 +466,9 @@ function App() {
               <Textarea 
                 value={matchResult} 
                 readOnly 
-                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none !select-text cursor-text pointer-events-auto" 
+                // 添加了 onClick 讓用戶點擊即可全選文字，並且強制開啟 select-text
+                onClick={(e) => e.target.select()}
+                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none !select-text cursor-text pointer-events-auto focus:ring-2 focus:ring-blue-500" 
               />
             </CardContent>
           </Card>
@@ -457,7 +481,7 @@ function App() {
                 <div>
                   <CardTitle className="text-lg font-medium text-blue-700 flex items-center"><Lock className="w-5 h-5 mr-2" />有鎖模式扣減結果</CardTitle>
                 </div>
-                <Button onClick={() => safeCopyText(lockedResult)} variant="outline" size="sm" className="border-blue-300 hover:bg-blue-100">
+                <Button onClick={() => navigator.clipboard.writeText(lockedResult)} variant="outline" size="sm" className="border-blue-300 hover:bg-blue-100">
                   複製扣減結果
                 </Button>
               </div>
@@ -466,7 +490,9 @@ function App() {
               <Textarea 
                 value={lockedResult} 
                 readOnly 
-                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-blue-300 resize-none !select-text cursor-text pointer-events-auto" 
+                // 添加了 onClick 讓用戶點擊即可全選文字
+                onClick={(e) => e.target.select()}
+                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-blue-300 resize-none !select-text cursor-text pointer-events-auto focus:ring-2 focus:ring-blue-500" 
               />
             </CardContent>
           </Card>
