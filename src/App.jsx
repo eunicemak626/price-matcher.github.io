@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
-import { Check, Trash2, Lock, Unlock, Copy, AlertCircle } from 'lucide-react'
+import { Check, Trash2, Lock, Unlock } from 'lucide-react'
 import './App.css'
 
 function App() {
@@ -13,12 +13,9 @@ function App() {
   const [copied, setCopied] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const [lockedResult, setLockedResult] = useState('')
-  
-  // 新增：用於顯示懸浮提示的狀態
-  const [toastMsg, setToastMsg] = useState({ show: false, msg: '', type: 'success' })
 
   // ==========================================
-  // 核心解析邏輯
+  // 核心解析邏輯 (還原至原本有效的版本)
   // ==========================================
 
   const parsePriceList = (text) => {
@@ -26,6 +23,7 @@ function App() {
     const prices = []
     let currentCategory = 'DEFAULT'
 
+    // 定義標題關鍵字
     const headerKeywords = [
       'CAP', 'CAPACITY', '容量', 
       'QTY', 'QUANTITY', '數量', 
@@ -37,6 +35,8 @@ function App() {
       if (!trimmed) continue
 
       const upperLine = trimmed.toUpperCase()
+
+      // 1. 檢查是否為標題行
       let firstKeywordIndex = -1
       
       for (const kw of headerKeywords) {
@@ -56,6 +56,7 @@ function App() {
         continue
       }
 
+      // 2. 檢查是否為純類別行
       const chineseCategories = ['IPAD 原封沒激活', 'IPAD 激活全套有鎖', 'LOCKED', 'UNLOCKED']
       const isChineseCategory = chineseCategories.some(cat => upperLine.includes(cat))
       
@@ -68,6 +69,7 @@ function App() {
         }
       }
 
+      // 3. 解析數據行
       const parts = trimmed.split(/\s+/)
       
       if (parts.length >= 3) {
@@ -89,6 +91,7 @@ function App() {
         if (secondToLastPart) {
             const isCapacity = secondToLastPart.toUpperCase().match(/\d+(GB|TB)$/)
             const isPartNum = /^[A-Z0-9]{6,10}$/i.test(secondToLastPart)
+            
             if (isCapacity || isPartNum) {
                 capacity = secondToLastPart
                 modelEndIndex = parts.length - 4
@@ -109,6 +112,7 @@ function App() {
         }
       }
     }
+
     return prices
   }
 
@@ -150,7 +154,12 @@ function App() {
         }
         
         if (lineNum && description) {
-          products.push({ lineNum, remarks, description, category: currentCategory })
+          products.push({
+            lineNum,
+            remarks,
+            description,
+            category: currentCategory
+          })
         }
       }
     }
@@ -164,23 +173,28 @@ function App() {
 
   const extractModelName = (text, removeColor = false) => {
     let model = text.replace(/\b\d+(?:GB|TB)\b/gi, '').trim()
+    
     if (removeColor) {
       const colors = ['BLACK', 'WHITE', 'BLUE', 'ORANGE', 'SILVER', 'GOLD', 'NATURAL', 'DESERT', 
                       'PINK', 'ULTRAMARINE', 'GRAY', 'GREY', 'GREEN', 'RED', 'PURPLE', 
                       'YELLOW', 'LAVENDER', 'SAGE', 'MIDNIGHT', 'STARLIGHT', 'TITANIUM',
                       'SPACE', 'ROSE', 'CORAL', 'TEAL', 'INDIGO', 'CRIMSON', 'VZ']
+      
       for (const color of colors) {
         const regex = new RegExp(`\\b${color}\\b\\s*$`, 'i')
         model = model.replace(regex, '').trim()
       }
     }
+    
     return model.toUpperCase().replace(/\s+/g, ' ')
   }
 
   const needsColorMatch = (category, priceModel = '') => {
     const cat = category.toUpperCase()
     if (cat.includes('UNLOCKED')) return true
-    if (cat.includes('LOCKED')) return cat.includes('N/A') || cat.includes('ACT')
+    if (cat.includes('LOCKED')) {
+      return cat.includes('N/A') || cat.includes('ACT')
+    }
     if (cat === 'DEFAULT') return false
     return true
   }
@@ -192,10 +206,14 @@ function App() {
   const modelsMatch = (productModel, priceModel) => {
     const p = productModel.toUpperCase().trim()
     const pr = priceModel.toUpperCase().trim()
+    
     if (p === pr) return true
+    
     const pWords = p.split(/\s+/).filter(w => w.length > 0)
     const prWords = pr.split(/\s+/).filter(w => w.length > 0)
+    
     if (pWords.length !== prWords.length) return false
+    
     for (let i = 0; i < pWords.length; i++) {
       if (pWords[i] !== prWords[i]) return false
     }
@@ -204,11 +222,13 @@ function App() {
 
   const applyDeductions = (basePrice, remarks) => {
     let finalPrice = basePrice
-    finalPrice -= 15
+    finalPrice -= 15 // Basic deduction
+    
     const deductions = {
       '小花': -100, '花機': -150, '大花': -350, '舊機': -350,
       '低保': -100, '過保': -200, '黑機': -200, '配置鎖': -300
     }
+    
     for (const [keyword, amount] of Object.entries(deductions)) {
       if (remarks.includes(keyword)) {
         finalPrice += amount
@@ -233,18 +253,23 @@ function App() {
     for (const product of products) {
       const productCapacity = extractCapacity(product.description)
       const requiresCapacity = needsCapacityMatch(product.description)
+      
       let matchedPrice = null
 
       for (const price of prices) {
         if (price.category !== product.category) continue
         const requiresColor = needsColorMatch(product.category, price.model)
+        
         const productModel = extractModelName(product.description, !requiresColor)
         const priceModel = extractModelName(price.model, !requiresColor)
         
         if (!modelsMatch(productModel, priceModel)) continue
+        
         if (requiresCapacity) {
           const priceCapacity = price.capacity || extractCapacity(price.model)
-          if (priceCapacity && productCapacity && priceCapacity !== productCapacity) continue
+          if (priceCapacity && productCapacity && priceCapacity !== productCapacity) {
+            continue
+          }
         }
 
         matchedPrice = price
@@ -284,11 +309,14 @@ function App() {
         const requiresColor = needsColorMatch(product.category, price.model)
         const productModel = extractModelName(product.description, !requiresColor)
         const priceModel = extractModelName(price.model, !requiresColor)
+        
         if (!modelsMatch(productModel, priceModel)) continue
+        
         if (requiresCapacity) {
           const priceCapacity = price.capacity || extractCapacity(price.model)
           if (priceCapacity && productCapacity && priceCapacity !== productCapacity) continue
         }
+
         matchedPrice = price
         break
       }
@@ -308,31 +336,23 @@ function App() {
   }
 
   // ==========================================
-  // Effects & UI Handlers
+  // Effects & Handlers
   // ==========================================
 
-  const showToastMessage = (msg, type = 'success') => {
-    setToastMsg({ show: true, msg, type })
-    setTimeout(() => setToastMsg({ show: false, msg: '', type: 'success' }), 2500)
-  }
-
-  const copyToClipboard = async (text, isAuto = false) => {
-    if (!text) return
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-        if (isAuto) showToastMessage('✅ 已自動複製結果')
-        else showToastMessage('✅ 複製成功')
-      }
-    } catch (err) {
-      console.error(err)
-      if (isAuto) showToastMessage('⚠️ 自動複製被攔截，請手動複製', 'error')
+  // 自動複製功能 (簡化版：不依賴 Toast 提示，確保穩定)
+  useEffect(() => {
+    if (matchResult && matchResult.length > 0) {
+      // 延遲一點點執行，確保狀態穩定
+      const timer = setTimeout(() => {
+        navigator.clipboard.writeText(matchResult).then(() => {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+        }).catch(err => console.error("Auto copy failed:", err));
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }
+  }, [matchResult])
 
-  // 延遲處理匹配與自動複製
   useEffect(() => {
     if (priceList.trim() && productList.trim()) {
       const timer = setTimeout(() => {
@@ -342,17 +362,6 @@ function App() {
       return () => clearTimeout(timer)
     }
   }, [priceList, productList, isLocked])
-
-  // 監聽結果變化進行自動複製
-  useEffect(() => {
-    if (matchResult && document.hasFocus()) {
-      // 這裡加一點延遲，確保數據渲染完畢，且避免輸入時頻繁觸發
-      const copyTimer = setTimeout(() => {
-        copyToClipboard(matchResult, true)
-      }, 800) 
-      return () => clearTimeout(copyTimer)
-    }
-  }, [matchResult])
 
   useEffect(() => {
     const handleKeyDown = (e) => { if (e.key === 'Escape') clearAll() }
@@ -370,16 +379,24 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(matchResult)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) { alert('複製失敗') }
+  }
+
   // ==========================================
   // UI Render
   // ==========================================
 
   return (
-    <div className="min-h-screen bg-white p-4 md:p-6 relative">
+    <div className="min-h-screen bg-white p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-3">產品價格匹配系統</h1>
-          <p className="text-lg text-gray-600">自動匹配產品列表與價格 (增強解析版)</p>
+          <p className="text-lg text-gray-600">自動匹配產品列表與價格 (穩定版)</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -404,7 +421,7 @@ function App() {
                   size="sm"
                   className={isLocked ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-gray-300 hover:bg-blue-50 text-blue-700'}
                 >
-                  {isLocked ? <><Lock className="w-4 h-4 mr-2" />有鎖模式</> : <><Unlock className="w-4 h-4 mr-2" />普通模式</>}
+                  {isLocked ? <><Lock className="w-4 h-4 mr-2" />有鎖</> : <><Unlock className="w-4 h-4 mr-2" />有鎖</>}
                 </Button>
               </div>
             </CardHeader>
@@ -437,19 +454,19 @@ function App() {
 
         {/* Results */}
         {matchResult && (
-          <Card className="border border-gray-300 shadow-lg">
-            <CardHeader className="pb-3 bg-gray-50/50">
+          <Card className="border border-gray-300">
+            <CardHeader className="pb-3">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                   <CardTitle className="text-lg font-medium text-gray-700">匹配結果</CardTitle>
-                  <CardDescription className="text-sm text-gray-500 flex gap-2 items-center">
-                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-bold">成功: {stats.matched}</span>
-                    <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-bold">失敗: {stats.unmatched}</span>
+                  <CardDescription className="text-sm text-gray-500">
+                    匹配: {stats.matched} / 未匹配: {stats.unmatched}
+                    {copied && <span className="ml-2 text-green-600 font-bold">(已自動複製)</span>}
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={() => copyToClipboard(matchResult)} variant="outline" size="sm" className={copied ? 'bg-green-50 border-green-600 text-green-700' : 'border-gray-300'}>
-                    {copied ? <><Check className="w-4 h-4 mr-2" />已複製</> : <><Copy className="w-4 h-4 mr-2" />手動複製</>}
+                  <Button onClick={copyToClipboard} variant="outline" size="sm" className={copied ? 'bg-green-50 border-green-600 text-green-700' : 'border-gray-300'}>
+                    {copied ? <><Check className="w-4 h-4 mr-2" />已複製</> : '複製結果'}
                   </Button>
                   <Button onClick={clearAll} variant="outline" size="sm" className="border-gray-300 hover:bg-red-50 text-red-700">
                     <Trash2 className="w-4 h-4 mr-2" />清除
@@ -457,21 +474,21 @@ function App() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-4">
-              <Textarea value={matchResult} readOnly className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none focus:ring-2 focus:ring-green-500" />
+            <CardContent>
+              <Textarea value={matchResult} readOnly className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none" />
             </CardContent>
           </Card>
         )}
 
         {isLocked && lockedResult && (
-          <Card className="border border-blue-300 bg-blue-50/30 mt-6 shadow-lg">
+          <Card className="border border-blue-300 bg-blue-50/30 mt-6">
             <CardHeader className="pb-3">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                   <CardTitle className="text-lg font-medium text-blue-700 flex items-center"><Lock className="w-5 h-5 mr-2" />有鎖模式扣減結果</CardTitle>
                 </div>
-                <Button onClick={() => copyToClipboard(lockedResult)} variant="outline" size="sm" className="border-blue-300 hover:bg-blue-100">
-                  <Copy className="w-4 h-4 mr-2" />複製扣減結果
+                <Button onClick={() => navigator.clipboard.writeText(lockedResult)} variant="outline" size="sm" className="border-blue-300 hover:bg-blue-100">
+                  複製扣減結果
                 </Button>
               </div>
             </CardHeader>
@@ -481,16 +498,6 @@ function App() {
           </Card>
         )}
       </div>
-
-      {/* 懸浮 Toast 提示 */}
-      {toastMsg.show && (
-        <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full shadow-xl flex items-center gap-2 transition-all duration-300 z-50 ${
-          toastMsg.type === 'error' ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'
-        }`}>
-          {toastMsg.type === 'error' ? <AlertCircle className="w-5 h-5" /> : <Check className="w-5 h-5 text-green-400" />}
-          <span className="font-medium text-sm">{toastMsg.msg}</span>
-        </div>
-      )}
     </div>
   )
 }
