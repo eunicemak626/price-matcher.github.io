@@ -30,17 +30,22 @@ function App() {
     console.log("已執行清除") // Debug 用
   }, [])
 
-  // 修正 2: 修正 useEffect 依賴，確保 Esc 鍵生效
+  // 修正 2: 優化全域按鍵監聽，確保 Esc 鍵在任何焦點下都能生效
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        e.preventDefault() // 防止瀏覽器默認行為
-        clearAll()
+        // 如果是在輸入框中，先讓它失去焦點，確保清除動作能順利執行
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        clearAll();
       }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [clearAll]) // 加入 clearAll 作為依賴
+    };
+
+    // 使用 keydown 並捕獲階段 (capture: true) 確保優先處理
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [clearAll]);
 
   // 修正 3: 優化手動複製功能 (取代無效的自動複製)
   const copyToClipboard = async () => {
