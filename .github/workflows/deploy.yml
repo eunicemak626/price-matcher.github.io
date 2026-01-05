@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main  # 當 main 分支有推送時觸發
+      - main
 
 permissions:
   contents: write
@@ -28,7 +28,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies 🔧
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build 🏗️
         run: pnpm build
@@ -36,5 +36,6 @@ jobs:
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist # 打包後的資料夾
-          branch: gh-pages # 部署到的分支
+          folder: dist
+          branch: gh-pages
+          clean: true
