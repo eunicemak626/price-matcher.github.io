@@ -30,11 +30,17 @@ function App() {
     console.log("已執行清除") // Debug 用
   }, [])
 
-  // 修正 2: 優化全域按鍵監聽，確保 Esc 鍵在任何焦點下都能生效
+  // 修正 2: 雙重保險全域按鍵監聽，加入 Debug 訊息
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Debug 用：按任何鍵都會在 Console 顯示
+      console.log('按鍵偵測:', e.key); 
+
       if (e.key === 'Escape') {
-        // 如果是在輸入框中，先讓它失去焦點，確保清除動作能順利執行
+        e.preventDefault();
+        console.log('Esc 觸發清除指令'); // 確認有無進入此行
+        
+        // 如果是在輸入框中，先讓它失去焦點
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
@@ -42,9 +48,11 @@ function App() {
       }
     };
 
-    // 使用 keydown 並捕獲階段 (capture: true) 確保優先處理
-    window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
+    // 改用 document，比 window 更穩陣
+    document.addEventListener('keydown', handleKeyDown);
+    
+    // 清除監聽
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [clearAll]);
 
   // 修正 3: 優化手動複製功能 (取代無效的自動複製)
