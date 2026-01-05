@@ -13,9 +13,49 @@ function App() {
   const [copied, setCopied] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const [lockedResult, setLockedResult] = useState('')
+  
+  // 新增狀態：記錄上次複製的內容，防止重複觸發
+  const [lastCopied, setLastCopied] = useState('')
+  const [lastLockedCopied, setLastLockedCopied] = useState('')
 
   // ==========================================
-  // 核心解析邏輯
+  // 1. 通用複製函式 (含備援方案 - 你的新代碼)
+  // ==========================================
+  const safeCopyText = async (text) => {
+    if (!text || !text.trim()) return false;
+
+    // 優先使用 Clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (e) {
+        console.warn('Clipboard API failed, fallback to legacy copy.', e);
+      }
+    }
+
+    // 備援：execCommand（舊法）
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      // 避免影響布局
+      textarea.style.position = 'fixed';
+      textarea.style.top = '-1000px';
+      textarea.style.left = '-1000px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return ok;
+    } catch (e) {
+      console.error('Fallback copy failed:', e);
+      return false;
+    }
+  };
+
+  // ==========================================
+  // 核心解析邏輯 (完全保留原有邏輯，未做任何修改)
   // ==========================================
 
   const parsePriceList = (text) => {
@@ -91,10 +131,6 @@ function App() {
     return prices
   }
 
-  // ==========================================
-  // 輔助功能
-  // ==========================================
-
   const parseProductList = (text) => {
     const lines = text.trim().split('\n')
     const products = []
@@ -167,10 +203,6 @@ function App() {
     return finalPrice
   }
 
-  // ==========================================
-  // 主匹配邏輯
-  // ==========================================
-
   const matchProducts = () => {
     const prices = parsePriceList(priceList)
     const products = parseProductList(productList)
@@ -242,7 +274,7 @@ function App() {
   }
 
   // ==========================================
-  // Effects & UI: 自動複製功能 + 鍵盤操作
+  // Effects & UI Handlers (更新部分)
   // ==========================================
 
   useEffect(() => {
@@ -255,24 +287,43 @@ function App() {
     }
   }, [priceList, productList, isLocked])
 
-  // ✨ 自動複製功能 (Auto Copy)
+  // 2. 自動複製 Effect (去重與安全判斷)
   useEffect(() => {
-    if (matchResult && matchResult.length > 0) {
-      // 延遲一點點，確保 DOM 已經渲染完成
-      const timer = setTimeout(() => {
-        // 檢查瀏覽器是否支援且頁面是否正在操作中
-        if (navigator.clipboard && document.hasFocus()) {
-           navigator.clipboard.writeText(matchResult)
-             .then(() => {
-               setCopied(true)
-               setTimeout(() => setCopied(false), 2000)
-             })
-             .catch(err => console.log('Auto copy failed (browser block):', err))
-        }
-      }, 800)
-      return () => clearTimeout(timer)
-    }
-  }, [matchResult])
+    const text = matchResult?.trim();
+    if (!text) return;
+    if (text === lastCopied) return; // 內容相同就不重複複製
+
+    const timer = setTimeout(async () => {
+      const ok = await safeCopyText(text);
+      if (ok) {
+        setLastCopied(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        console.warn('Auto copy not permitted; use the copy button.');
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [matchResult, lastCopied]);
+
+  // 4. 針對 lockedResult (可選，有鎖模式自動複製)
+  useEffect(() => {
+    if (!isLocked) return;
+    const text = lockedResult?.trim();
+    if (!text) return;
+    if (text === lastLockedCopied) return;
+
+    const timer = setTimeout(async () => {
+      const ok = await safeCopyText(text);
+      if (ok) {
+        setLastLockedCopied(text);
+        // 這裡不彈出 copied 狀態，避免與主結果提示混淆
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [isLocked, lockedResult, lastLockedCopied]);
 
   useEffect(() => {
     const handleKeyDown = (e) => { if (e.key === 'Escape') clearAll() }
@@ -282,18 +333,28 @@ function App() {
 
   const clearAll = () => {
     setPriceList(''); setProductList(''); setMatchResult(''); setLockedResult('')
+    setLastCopied(''); setLastLockedCopied(''); // 重置複製記錄
     setStats({ matched: 0, unmatched: 0, total: 0 }); setIsLocked(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(matchResult)
-      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
-      .catch(() => alert('複製失敗'))
-  }
+  // 3. 手動複製按鈕 (使用通用函式)
+  const copyToClipboard = async () => {
+    const text = matchResult?.trim();
+    if (!text) return;
+
+    const ok = await safeCopyText(text);
+    if (ok) {
+      setLastCopied(text); // 手動複製也更新記錄
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      alert('複製失敗，請檢查瀏覽器權限或使用 HTTPS');
+    }
+  };
 
   // ==========================================
-  // UI Render (已加入 !select-text 確保可選字)
+  // UI Render (保留 !select-text)
   // ==========================================
 
   return (
@@ -301,21 +362,26 @@ function App() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-3">產品價格匹配系統</h1>
-          <p className="text-lg text-gray-600">自動匹配產品列表與價格</p>
+          <p className="text-lg text-gray-600">自動匹配產品列表與價格 (增強複製穩定性)</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Price List */}
           <Card className="border border-gray-300">
             <CardHeader className="pb-3">
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                 <div>
                   <CardTitle className="text-lg font-medium text-gray-700">第一步：輸入價格列表</CardTitle>
-                  <CardDescription className="text-sm text-gray-500">支援標題行識別</CardDescription>
+                  <CardDescription className="text-sm text-gray-500">
+                    支援格式：類別與標題同行 (e.g. IPAD... 容量 數量)
+                  </CardDescription>
                 </div>
                 <Button 
                   onClick={() => {
                     setIsLocked(!isLocked)
-                    if (!isLocked && priceList.trim() && productList.trim()) setTimeout(() => processLockedMatching(), 100)
+                    if (!isLocked && priceList.trim() && productList.trim()) {
+                      setTimeout(() => processLockedMatching(), 100)
+                    }
                   }}
                   variant={isLocked ? "default" : "outline"}
                   size="sm"
@@ -335,9 +401,11 @@ function App() {
             </CardContent>
           </Card>
 
+          {/* Product List */}
           <Card className="border border-gray-300">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg font-medium text-gray-700">第二步：輸入產品列表</CardTitle>
+              <CardDescription className="text-sm text-gray-500">支援 Tab 分隔或 Excel 複製</CardDescription>
             </CardHeader>
             <CardContent>
               <Textarea
@@ -350,6 +418,7 @@ function App() {
           </Card>
         </div>
 
+        {/* Results */}
         {matchResult && (
           <Card className="border border-gray-300">
             <CardHeader className="pb-3">
@@ -385,8 +454,10 @@ function App() {
           <Card className="border border-blue-300 bg-blue-50/30 mt-6">
             <CardHeader className="pb-3">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <CardTitle className="text-lg font-medium text-blue-700 flex items-center"><Lock className="w-5 h-5 mr-2" />有鎖模式扣減結果</CardTitle>
-                <Button onClick={() => navigator.clipboard.writeText(lockedResult)} variant="outline" size="sm" className="border-blue-300 hover:bg-blue-100">
+                <div>
+                  <CardTitle className="text-lg font-medium text-blue-700 flex items-center"><Lock className="w-5 h-5 mr-2" />有鎖模式扣減結果</CardTitle>
+                </div>
+                <Button onClick={() => safeCopyText(lockedResult)} variant="outline" size="sm" className="border-blue-300 hover:bg-blue-100">
                   複製扣減結果
                 </Button>
               </div>
