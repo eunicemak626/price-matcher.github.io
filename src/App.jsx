@@ -339,8 +339,6 @@ function App() {
   // Effects & Handlers
   // ==========================================
 
-  // 1. 移除了自動複製的 useEffect，避免報錯
-
   useEffect(() => {
     if (priceList.trim() && productList.trim()) {
       const timer = setTimeout(() => {
@@ -384,7 +382,7 @@ function App() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-3">產品價格匹配系統</h1>
-          <p className="text-lg text-gray-600">自動匹配產品列表與價格 (手動選擇版)</p>
+          <p className="text-lg text-gray-600">自動匹配產品列表與價格 (滑過全選版)</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -466,8 +464,8 @@ function App() {
               <Textarea 
                 value={matchResult} 
                 readOnly 
-                // 添加了 onClick 讓用戶點擊即可全選文字，並且強制開啟 select-text
-                onClick={(e) => e.target.select()}
+                // 改為 onMouseEnter，滑過即全選
+                onMouseEnter={(e) => e.target.select()}
                 className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none !select-text cursor-text pointer-events-auto focus:ring-2 focus:ring-blue-500" 
               />
             </CardContent>
@@ -490,8 +488,8 @@ function App() {
               <Textarea 
                 value={lockedResult} 
                 readOnly 
-                // 添加了 onClick 讓用戶點擊即可全選文字
-                onClick={(e) => e.target.select()}
+                // 改為 onMouseEnter，滑過即全選
+                onMouseEnter={(e) => e.target.select()}
                 className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-blue-300 resize-none !select-text cursor-text pointer-events-auto focus:ring-2 focus:ring-blue-500" 
               />
             </CardContent>
