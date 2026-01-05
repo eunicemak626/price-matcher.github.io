@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react' // 1. 記得引入 useCallback
 import { Button } from '@/components/ui/button.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
-import { Check, Trash2, Lock, Unlock } from 'lucide-react'
+import { Check, Trash2, Lock, Unlock, Copy } from 'lucide-react' // 加咗個 Copy icon
 import './App.css'
 
 function App() {
@@ -15,7 +15,48 @@ function App() {
   const [lockedResult, setLockedResult] = useState('')
 
   // ==========================================
-  // 核心解析邏輯 (Script 1 的優勢所在)
+  // 核心功能: 清除與複製 (修正版)
+  // ==========================================
+
+  // 修正 1: 用 useCallback 包裹 clearAll 並放在 useEffect 之前
+  const clearAll = useCallback(() => {
+    setPriceList('')
+    setProductList('')
+    setMatchResult('')
+    setLockedResult('')
+    setStats({ matched: 0, unmatched: 0, total: 0 })
+    setIsLocked(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    console.log("已執行清除") // Debug 用
+  }, [])
+
+  // 修正 2: 修正 useEffect 依賴，確保 Esc 鍵生效
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault() // 防止瀏覽器默認行為
+        clearAll()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [clearAll]) // 加入 clearAll 作為依賴
+
+  // 修正 3: 優化手動複製功能 (取代無效的自動複製)
+  const copyToClipboard = async () => {
+    if (!matchResult) return
+    try {
+      await navigator.clipboard.writeText(matchResult)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('複製失敗:', err)
+      alert('瀏覽器權限限制，請手動選取複製')
+    }
+  }
+
+  // ==========================================
+  // 核心解析邏輯 (保持不變)
   // ==========================================
 
   const parsePriceList = (text) => {
@@ -23,7 +64,6 @@ function App() {
     const prices = []
     let currentCategory = 'DEFAULT'
 
-    // 定義標題關鍵字 (用於識別標題行並提取前面的類別名)
     const headerKeywords = [
       'CAP', 'CAPACITY', '容量', 
       'QTY', 'QUANTITY', '數量', 
@@ -35,15 +75,11 @@ function App() {
       if (!trimmed) continue
 
       const upperLine = trimmed.toUpperCase()
-
-      // 1. 檢查是否為標題行 (Header Line)
-      // 邏輯：尋找最早出現的關鍵字位置，將其前面的文字視為類別
       let firstKeywordIndex = -1
       
       for (const kw of headerKeywords) {
         const idx = upperLine.indexOf(kw)
         if (idx !== -1) {
-          // 如果找到關鍵字，且是目前找到最早的，記錄下來
           if (firstKeywordIndex === -1 || idx < firstKeywordIndex) {
             firstKeywordIndex = idx
           }
@@ -51,25 +87,17 @@ function App() {
       }
 
       if (firstKeywordIndex !== -1) {
-        // 找到了關鍵字，這是一行標題
-        // 提取關鍵字之前的部分作為類別名稱
         const potentialCategory = trimmed.substring(0, firstKeywordIndex).trim()
-        
-        // 如果前面有文字，更新當前類別
         if (potentialCategory.length > 0) {
           currentCategory = potentialCategory
         }
-        // 跳過這一行，因為它是標題
         continue
       }
 
-      // 2. 檢查是否為純類別行 (Category Line)
-      // 條件：沒有 Tab，全大寫，或者包含特定的中文類別詞
       const chineseCategories = ['IPAD 原封沒激活', 'IPAD 激活全套有鎖', 'LOCKED', 'UNLOCKED']
       const isChineseCategory = chineseCategories.some(cat => upperLine.includes(cat))
       
       if ((!trimmed.includes('\t') && trimmed === upperLine && trimmed.length < 50) || isChineseCategory) {
-        // 再次確認不是數據行 (沒有價格數字)
         const parts = trimmed.split(/\s+/)
         const lastPart = parts[parts.length - 1]
         if (isNaN(parseFloat(lastPart))) {
@@ -78,9 +106,7 @@ function App() {
         }
       }
 
-      // 3. 解析數據行 (Data Line)
-      // 支援 Tab 或 空格分隔
-      const parts = trimmed.split(/\s+/) // 使用正則表達式兼容多個空格
+      const parts = trimmed.split(/\s+/)
       
       if (parts.length >= 3) {
         let price = 0
@@ -88,20 +114,15 @@ function App() {
         let capacity = ''
         let modelParts = []
 
-        // 從後往前找價格 (最後一個數字)
         if (!isNaN(parseFloat(parts[parts.length - 1]))) {
             price = parseFloat(parts[parts.length - 1])
         }
 
-        // 從後往前找數量 (價格前面的數字)
         if (parts.length >= 2 && !isNaN(parseInt(parts[parts.length - 2]))) {
             qty = parseInt(parts[parts.length - 2])
         }
 
-        // 確定型號結束的位置
-        let modelEndIndex = parts.length - 3 // 預設：型號在數量和價格之前結束
-
-        // 檢查倒數第三個是不是容量 (例如 128GB) 或 Part Number
+        let modelEndIndex = parts.length - 3
         const secondToLastPart = parts[parts.length - 3]
         if (secondToLastPart) {
             const isCapacity = secondToLastPart.toUpperCase().match(/\d+(GB|TB)$/)
@@ -113,7 +134,6 @@ function App() {
             }
         }
 
-        // 組合型號名稱
         modelParts = parts.slice(0, modelEndIndex + 1)
         const model = modelParts.join(' ')
 
@@ -128,12 +148,11 @@ function App() {
         }
       }
     }
-
     return prices
   }
 
   // ==========================================
-  // 輔助功能函數
+  // 輔助功能函數 (保持不變)
   // ==========================================
 
   const parseProductList = (text) => {
@@ -145,13 +164,11 @@ function App() {
       const trimmed = line.trim()
       if (!trimmed) continue
 
-      // Skip header rows
       const upperLine = trimmed.toUpperCase()
       if (upperLine.includes('CAP') && upperLine.includes('QTY') && upperLine.includes('HKD')) {
         continue
       }
 
-      // Check category line
       const chineseCategories = ['IPAD 原封沒激活', 'IPAD 激活全套有鎖']
       if ((!trimmed.includes('\t') && trimmed === trimmed.toUpperCase()) || chineseCategories.includes(trimmed)) {
         currentCategory = trimmed
@@ -190,14 +207,13 @@ function App() {
   }
 
   const extractModelName = (text, removeColor = false) => {
-    // 先移除容量
     let model = text.replace(/\b\d+(?:GB|TB)\b/gi, '').trim()
     
     if (removeColor) {
       const colors = ['BLACK', 'WHITE', 'BLUE', 'ORANGE', 'SILVER', 'GOLD', 'NATURAL', 'DESERT', 
                       'PINK', 'ULTRAMARINE', 'GRAY', 'GREY', 'GREEN', 'RED', 'PURPLE', 
                       'YELLOW', 'LAVENDER', 'SAGE', 'MIDNIGHT', 'STARLIGHT', 'TITANIUM',
-                      'SPACE', 'ROSE', 'CORAL', 'TEAL', 'INDIGO', 'CRIMSON', 'VZ'] // VZ added for your case
+                      'SPACE', 'ROSE', 'CORAL', 'TEAL', 'INDIGO', 'CRIMSON', 'VZ']
       
       for (const color of colors) {
         const regex = new RegExp(`\\b${color}\\b\\s*$`, 'i')
@@ -210,9 +226,7 @@ function App() {
 
   const needsColorMatch = (category, priceModel = '') => {
     const cat = category.toUpperCase()
-    // UNLOCKED categories always need color matching
     if (cat.includes('UNLOCKED')) return true
-    // LOCKED categories: only match color if category contains N/A or ACT
     if (cat.includes('LOCKED')) {
       return cat.includes('N/A') || cat.includes('ACT')
     }
@@ -221,7 +235,6 @@ function App() {
   }
 
   const needsCapacityMatch = (description) => {
-    const upper = description.toUpperCase()
     return /\b\d+(?:GB|TB)\b/i.test(description)
   }
 
@@ -231,7 +244,6 @@ function App() {
     
     if (p === pr) return true
     
-    // Token-based matching (allows different word order or extra spaces)
     const pWords = p.split(/\s+/).filter(w => w.length > 0)
     const prWords = pr.split(/\s+/).filter(w => w.length > 0)
     
@@ -245,7 +257,7 @@ function App() {
 
   const applyDeductions = (basePrice, remarks) => {
     let finalPrice = basePrice
-    finalPrice -= 15 // Basic deduction
+    finalPrice -= 15 
     
     const deductions = {
       '小花': -100, '花機': -150, '大花': -350, '舊機': -350,
@@ -280,19 +292,15 @@ function App() {
       let matchedPrice = null
 
       for (const price of prices) {
-        // 1. Category Match
         if (price.category !== product.category) continue
 
-        // 2. Color Requirement Check
         const requiresColor = needsColorMatch(product.category, price.model)
         
-        // 3. Model Name Extraction & Match
         const productModel = extractModelName(product.description, !requiresColor)
         const priceModel = extractModelName(price.model, !requiresColor)
         
         if (!modelsMatch(productModel, priceModel)) continue
         
-        // 4. Capacity Match
         if (requiresCapacity) {
           const priceCapacity = price.capacity || extractCapacity(price.model)
           if (priceCapacity && productCapacity && priceCapacity !== productCapacity) {
@@ -364,7 +372,7 @@ function App() {
   }
 
   // ==========================================
-  // Effects & Handlers
+  // Effects
   // ==========================================
 
   useEffect(() => {
@@ -377,44 +385,8 @@ function App() {
     }
   }, [priceList, productList, isLocked])
 
-  useEffect(() => {
-    if (matchResult) {
-      const autoCopy = async () => {
-        try {
-          if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(matchResult)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 2000)
-          }
-        } catch (err) { console.error(err) }
-      }
-      autoCopy()
-    }
-  }, [matchResult])
-
-  useEffect(() => {
-    const handleKeyDown = (e) => { if (e.key === 'Escape') clearAll() }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
-
-  const clearAll = () => {
-    setPriceList('')
-    setProductList('')
-    setMatchResult('')
-    setLockedResult('')
-    setStats({ matched: 0, unmatched: 0, total: 0 })
-    setIsLocked(false)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(matchResult)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) { alert('複製失敗') }
-  }
+  // [已移除] 自動複製的 Effect (因為瀏覽器會阻擋)
+  // 如果你想保留但不管報錯，可以加回來，但建議使用手動按鈕
 
   // ==========================================
   // UI Render
@@ -425,7 +397,7 @@ function App() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-3">產品價格匹配系統</h1>
-          <p className="text-lg text-gray-600">自動匹配產品列表與價格 (增強解析版)</p>
+          <p className="text-lg text-gray-600">自動匹配產品列表與價格 (修復版)</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -494,10 +466,10 @@ function App() {
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={copyToClipboard} variant="outline" size="sm" className={copied ? 'bg-green-50 border-green-600 text-green-700' : 'border-gray-300'}>
-                    {copied ? <><Check className="w-4 h-4 mr-2" />已複製</> : '複製結果'}
+                    {copied ? <><Check className="w-4 h-4 mr-2" />已複製</> : <><Copy className="w-4 h-4 mr-2" />複製結果</>}
                   </Button>
                   <Button onClick={clearAll} variant="outline" size="sm" className="border-gray-300 hover:bg-red-50 text-red-700">
-                    <Trash2 className="w-4 h-4 mr-2" />清除
+                    <Trash2 className="w-4 h-4 mr-2" />清除 (Esc)
                   </Button>
                 </div>
               </div>
