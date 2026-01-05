@@ -305,9 +305,17 @@ function App() {
       let matchedPrice = null
 
       for (const price of prices) {
-        if (price.category !== product.category) continue
+        // 修正：放寬類別匹配限制。如果類別不完全一致，但模型匹配，則視為匹配成功
+        // 這樣可以避免因為空格或微小差異導致的匹配失敗
+        const pCat = (product.category || 'DEFAULT').toUpperCase().trim()
+        const prCat = (price.category || 'DEFAULT').toUpperCase().trim()
+        
+        // 如果類別不匹配且兩者都不是預設類別，則跳過 (保留基本的分類功能)
+        if (pCat !== 'DEFAULT' && prCat !== 'DEFAULT' && pCat !== prCat) {
+          if (!pCat.includes(prCat) && !prCat.includes(pCat)) continue
+        }
 
-        const requiresColor = needsColorMatch(product.category, price.model)
+        const requiresColor = needsColorMatch(product.category || price.category, price.model)
         
         const productModel = extractModelName(product.description, !requiresColor)
         const priceModel = extractModelName(price.model, !requiresColor)
@@ -354,8 +362,12 @@ function App() {
       let matchedPrice = null
 
       for (const price of prices) {
-        if (price.category !== product.category) continue
-        const requiresColor = needsColorMatch(product.category, price.model)
+        const pCat = (product.category || 'DEFAULT').toUpperCase().trim()
+        const prCat = (price.category || 'DEFAULT').toUpperCase().trim()
+        if (pCat !== 'DEFAULT' && prCat !== 'DEFAULT' && pCat !== prCat) {
+          if (!pCat.includes(prCat) && !prCat.includes(pCat)) continue
+        }
+        const requiresColor = needsColorMatch(product.category || price.category, price.model)
         const productModel = extractModelName(product.description, !requiresColor)
         const priceModel = extractModelName(price.model, !requiresColor)
         
