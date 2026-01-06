@@ -15,7 +15,8 @@ function App() {
   const [lockedResult, setLockedResult] = useState('')
 
   // ==========================================
-  // 核心解析邏輯 (修復版 - 解決 MacBook 與 AirPods 兼容問題)
+  // 🌟 核心解析邏輯 (安全清潔版)
+  // 完全保留舊邏輯，只在解析前移除「總價」和「備註」
   // ==========================================
 
   const parsePriceList = (text) => {
@@ -61,50 +62,79 @@ function App() {
       if ((!trimmed.includes('\t') && trimmed === upperLine && trimmed.length < 50) || isChineseCategory) {
         const parts = trimmed.split(/\s+/)
         const lastPart = parts[parts.length - 1]
+        // 如果最後不是數字，很大機會是標題
         if (isNaN(parseFloat(lastPart))) {
             currentCategory = trimmed
             continue
         }
       }
 
-      // 3. 解析數據行 (從後往前讀)
-      const parts = trimmed.split(/\s+/)
+      // 3. 解析數據行 (🌟 這裡加入了「清潔工」邏輯)
+      let parts = trimmed.split(/\s+/)
       
-      if (parts.length >= 3) {
+      if (parts.length >= 2) {
+        // --- STEP A: 移除尾部的非數字備註 (例如 "1SSC", "SOLD") ---
+        while (parts.length > 0) {
+            const last = parts[parts.length - 1]
+            // 如果是數字 (且不是純 Part Number)，停止移除
+            if (!isNaN(parseFloat(last)) && isFinite(last)) {
+                break
+            }
+            parts.pop() // 移除備註
+        }
+
+        // --- STEP B: 移除「總價」 (如果存在) ---
+        // 檢查模式: [數量] [單價] [總價]
+        if (parts.length >= 3) {
+            const pTotal = parseFloat(parts[parts.length - 1]) // 最後一個數
+            const pUnit = parseFloat(parts[parts.length - 2])  // 倒數第二個數
+            const pQty = parseFloat(parts[parts.length - 3])   // 倒數第三個數
+
+            if (!isNaN(pTotal) && !isNaN(pUnit) && !isNaN(pQty)) {
+                // 驗算：如果 數量 x 單價 ≈ 總價，那麼最後一個肯定是總價，移除它！
+                if (Math.abs(pQty * pUnit - pTotal) < 1) {
+                    parts.pop() // 移除總價，保留單價和數量
+                }
+            }
+        }
+
+        // --- STEP C: 執行原本的匹配邏輯 (MacBook/AirPods 兼容版) ---
+        // 這部分完全沒有改動，保證邏輯一致性
         let price = 0
         let qty = 0
         let capacity = ''
-        let modelParts = []
+        let modelEndIndex = parts.length - 1
 
-        // 解析價格 (最後一項)
-        if (!isNaN(parseFloat(parts[parts.length - 1]))) {
+        // 解析價格 (現在最後一項肯定是單價)
+        if (parts.length >= 1 && !isNaN(parseFloat(parts[parts.length - 1]))) {
             price = parseFloat(parts[parts.length - 1])
+            modelEndIndex = parts.length - 2
         }
 
         // 解析數量 (倒數第二項)
         if (parts.length >= 2 && !isNaN(parseInt(parts[parts.length - 2]))) {
             qty = parseInt(parts[parts.length - 2])
+            modelEndIndex = parts.length - 3
         }
 
         // 解析容量 或 Part Number (倒數第三項)
-        let modelEndIndex = parts.length - 3
-        const secondToLastPart = parts[parts.length - 3]
-        
-        if (secondToLastPart) {
-            const isCapacity = secondToLastPart.toUpperCase().match(/\d+(GB|TB)$/)
-            const isPartNum = /^[A-Z0-9]{6,10}$/i.test(secondToLastPart)
-            
-            if (isCapacity) {
-                // 真容量 -> 存入 capacity
-                capacity = secondToLastPart
-                modelEndIndex = parts.length - 4
-            } else if (isPartNum) {
-                // Part Number -> 不存入 capacity，但調整 model 截取範圍
-                modelEndIndex = parts.length - 4
+        if (modelEndIndex >= 0) {
+            const checkPart = parts[modelEndIndex]
+            if (checkPart) {
+                const isCapacity = checkPart.toUpperCase().match(/\d+(GB|TB)$/)
+                const isPartNum = /^[A-Z0-9]{6,10}$/i.test(checkPart)
+                
+                if (isCapacity) {
+                    capacity = checkPart
+                    modelEndIndex--
+                } else if (isPartNum) {
+                    // Part Number 略過，不當作容量
+                    modelEndIndex--
+                }
             }
         }
 
-        modelParts = parts.slice(0, modelEndIndex + 1)
+        const modelParts = parts.slice(0, modelEndIndex + 1)
         const model = modelParts.join(' ')
 
         if (model && price > 0) {
@@ -142,10 +172,8 @@ function App() {
         continue
       }
 
-      // 嘗試用 Tab 分割
       let parts = trimmed.split('\t')
 
-      // 如果沒有 Tab，嘗試智能空格分割
       if (parts.length < 2) {
         const spaceMatch = trimmed.match(/^(\S+)\s+(.+)$/)
         if (spaceMatch) {
@@ -263,6 +291,9 @@ function App() {
     let matchedCount = 0
     let unmatchedCount = 0
     let lastCategory = null
+    
+    let grandTotalQty = 0
+    let grandTotalPrice = 0
 
     for (const product of products) {
       const productCapacity = extractCapacity(product.description)
@@ -293,14 +324,33 @@ function App() {
       if (matchedPrice !== null) {
         if (lastCategory !== null && lastCategory !== product.category) {
           results.push('')
-          results.push('')
+          results.push(product.category)
+        } else if (lastCategory === null) {
+           results.push(product.category)
         }
-        results.push(`${product.lineNum}\t${matchedPrice.price}`)
+
+        if (matchedPrice.qty > 0) {
+            const lineTotal = matchedPrice.price * matchedPrice.qty
+            grandTotalQty += matchedPrice.qty
+            grandTotalPrice += lineTotal
+            results.push(`${matchedPrice.model}\t${matchedPrice.capacity}\t${matchedPrice.qty}\t${matchedPrice.price}\t${lineTotal}\t${product.remarks}`)
+        } else {
+            results.push(`${product.lineNum}\t${matchedPrice.price}`)
+        }
+
         matchedCount++
         lastCategory = product.category
       } else {
         unmatchedCount++
       }
+    }
+
+    if (grandTotalQty > 0) {
+        results.push('')
+        results.push(`\t\t${grandTotalQty}\t\t${grandTotalPrice}\t`)
+        results.push('')
+        results.push('TRACKING')
+        results.push('')
     }
 
     setMatchResult(results.join('\n'))
@@ -498,20 +548,4 @@ function App() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              <Textarea 
-                value={lockedResult} 
-                readOnly 
-                // 改為 onMouseEnter，滑過即全選
-                onMouseEnter={(e) => e.target.select()}
-                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-blue-300 resize-none !select-text cursor-text pointer-events-auto focus:ring-2 focus:ring-blue-500" 
-              />
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
-  )
-}
-
-export default App
+            <CardContent
