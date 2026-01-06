@@ -15,7 +15,7 @@ function App() {
   const [lockedResult, setLockedResult] = useState('')
 
   // ==========================================
-  // 🌟 核心解析邏輯 (修正版 - 唯一能解決 MacBook 問題的邏輯)
+  // 核心解析邏輯 (修復版 - 解決 MacBook 與 AirPods 兼容問題)
   // ==========================================
 
   const parsePriceList = (text) => {
@@ -67,7 +67,7 @@ function App() {
         }
       }
 
-      // 3. 解析數據行 (從後往前讀，解決 MacBook 長標題問題)
+      // 3. 解析數據行 (從後往前讀)
       const parts = trimmed.split(/\s+/)
       
       if (parts.length >= 3) {
@@ -99,8 +99,7 @@ function App() {
                 capacity = secondToLastPart
                 modelEndIndex = parts.length - 4
             } else if (isPartNum) {
-                // 🌟 重點修正：Part Number (如 MW123LL) 不會被當作容量
-                // 這樣系統就會去前面的 Model Name 裡找 "256GB"
+                // Part Number -> 不存入 capacity，但調整 model 截取範圍
                 modelEndIndex = parts.length - 4
             }
         }
@@ -143,8 +142,10 @@ function App() {
         continue
       }
 
-      // 🌟 修正：先試 Tab，如果失敗則試空格 (解決 WhatsApp 複製過來的問題)
+      // 嘗試用 Tab 分割
       let parts = trimmed.split('\t')
+
+      // 如果沒有 Tab，嘗試智能空格分割
       if (parts.length < 2) {
         const spaceMatch = trimmed.match(/^(\S+)\s+(.+)$/)
         if (spaceMatch) {
@@ -178,7 +179,7 @@ function App() {
   }
 
   // ==========================================
-  // 輔助功能函數 (保持不變)
+  // 輔助功能函數
   // ==========================================
 
   const extractCapacity = (description) => {
@@ -404,4 +405,113 @@ function App() {
             <CardHeader className="pb-3">
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                 <div>
-                  <CardTitle
+                  <CardTitle className="text-lg font-medium text-gray-700">第一步：輸入價格列表</CardTitle>
+                  <CardDescription className="text-sm text-gray-500">
+                    支援格式：類別與標題同行 (e.g. IPAD... 容量 數量)
+                  </CardDescription>
+                </div>
+                <Button 
+                  onClick={() => {
+                    setIsLocked(!isLocked)
+                    if (!isLocked && priceList.trim() && productList.trim()) {
+                      setTimeout(() => processLockedMatching(), 100)
+                    }
+                  }}
+                  variant={isLocked ? "default" : "outline"}
+                  size="sm"
+                  className={isLocked ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-gray-300 hover:bg-blue-50 text-blue-700'}
+                >
+                  {isLocked ? <><Lock className="w-4 h-4 mr-2" />有鎖</> : <><Unlock className="w-4 h-4 mr-2" />有鎖</>}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                placeholder="IPAD 原封沒激活 容量 數量 人民幣&#10;IPAD PRO 13 256GB 5 9500"
+                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none !select-text cursor-text pointer-events-auto"
+                value={priceList}
+                onChange={(e) => setPriceList(e.target.value)}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Product List */}
+          <Card className="border border-gray-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-medium text-gray-700">第二步：輸入產品列表</CardTitle>
+              <CardDescription className="text-sm text-gray-500">支援 Tab 分隔或 Excel 複製</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                placeholder="IPAD 原封沒激活&#10;12345&#9;IPAD PRO 13 256GB"
+                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none !select-text cursor-text pointer-events-auto"
+                value={productList}
+                onChange={(e) => setProductList(e.target.value)}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Results */}
+        {matchResult && (
+          <Card className="border border-gray-300">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg font-medium text-gray-700">匹配結果</CardTitle>
+                  <CardDescription className="text-sm text-gray-500">
+                    匹配: {stats.matched} / 未匹配: {stats.unmatched}
+                    {copied && <span className="ml-2 text-green-600 font-bold">(已複製)</span>}
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={copyToClipboard} variant="outline" size="sm" className={copied ? 'bg-green-50 border-green-600 text-green-700' : 'border-gray-300'}>
+                    {copied ? <><Check className="w-4 h-4 mr-2" />已複製</> : '複製結果'}
+                  </Button>
+                  <Button onClick={clearAll} variant="outline" size="sm" className="border-gray-300 hover:bg-red-50 text-red-700">
+                    <Trash2 className="w-4 h-4 mr-2" />清除
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Textarea 
+                value={matchResult} 
+                readOnly 
+                // 改為 onMouseEnter，滑過即全選
+                onMouseEnter={(e) => e.target.select()}
+                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none !select-text cursor-text pointer-events-auto focus:ring-2 focus:ring-blue-500" 
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {isLocked && lockedResult && (
+          <Card className="border border-blue-300 bg-blue-50/30 mt-6">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg font-medium text-blue-700 flex items-center"><Lock className="w-5 h-5 mr-2" />有鎖模式扣減結果</CardTitle>
+                </div>
+                <Button onClick={() => navigator.clipboard.writeText(lockedResult)} variant="outline" size="sm" className="border-blue-300 hover:bg-blue-100">
+                  複製扣減結果
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Textarea 
+                value={lockedResult} 
+                readOnly 
+                // 改為 onMouseEnter，滑過即全選
+                onMouseEnter={(e) => e.target.select()}
+                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-blue-300 resize-none !select-text cursor-text pointer-events-auto focus:ring-2 focus:ring-blue-500" 
+              />
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default App
