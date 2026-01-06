@@ -548,4 +548,20 @@ function App() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent
+            <CardContent>
+              <Textarea 
+                value={lockedResult} 
+                readOnly 
+                // 改為 onMouseEnter，滑過即全選
+                onMouseEnter={(e) => e.target.select()}
+                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-blue-300 resize-none !select-text cursor-text pointer-events-auto focus:ring-2 focus:ring-blue-500" 
+              />
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default App
