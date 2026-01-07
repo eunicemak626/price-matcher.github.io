@@ -15,7 +15,7 @@ function App() {
   const [lockedResult, setLockedResult] = useState('')
 
   // ==========================================
-  // 核心解析邏輯 (修復版 - 解決 MacBook 與 AirPods 兼容問題)
+  // 核心解析邏輯 (Tab 優先 + Part Number 修復版)
   // ==========================================
 
   const parsePriceList = (text) => {
@@ -67,7 +67,64 @@ function App() {
         }
       }
 
-      // 3. 解析數據行 (從後往前讀)
+      // ==========================================
+      // 3. 解析數據行 (Tab 優先模式)
+      // ==========================================
+      
+      // 模式 A: 如果有 Tab (Excel 複製)，直接依欄位切割
+      if (trimmed.includes('\t')) {
+        // 過濾掉空欄位
+        const tabParts = trimmed.split('\t').map(p => p.trim()).filter(p => p)
+        
+        if (tabParts.length >= 2) {
+            // 價格總是最後一欄
+            const priceStr = tabParts[tabParts.length - 1]
+            
+            if (!isNaN(parseFloat(priceStr))) {
+                const price = parseFloat(priceStr)
+                let qty = 0
+                let model = tabParts[0] // 第一欄必定是型號
+                let capacity = ''
+
+                // 嘗試找數量 (通常是倒數第二欄)
+                if (tabParts.length >= 3) {
+                    const qtyStr = tabParts[tabParts.length - 2]
+                    if (!isNaN(parseInt(qtyStr)) && qtyStr.length < 5) {
+                        qty = parseInt(qtyStr)
+                    }
+                }
+
+                // 嘗試從中間欄位找容量
+                const endIndex = (qty > 0) ? tabParts.length - 2 : tabParts.length - 1
+                for (let i = 1; i < endIndex; i++) {
+                    const part = tabParts[i].toUpperCase()
+                    if (part.match(/\d+(GB|TB)$/)) {
+                        capacity = part
+                    }
+                }
+
+                // 如果中間欄位沒寫容量，嘗試從型號名稱裡面抓
+                if (!capacity) {
+                    const capMatch = model.toUpperCase().match(/\d+(GB|TB)/)
+                    if (capMatch) capacity = capMatch[0]
+                }
+
+                if (model && price > 0) {
+                    prices.push({
+                        category: currentCategory,
+                        model: model,
+                        capacity: capacity,
+                        qty: qty,
+                        price: price
+                    })
+                }
+                // 成功用 Tab 解析後，直接換下一行
+                continue 
+            }
+        }
+      }
+
+      // 模式 B: 純文字空格模式 (Fallback)
       const parts = trimmed.split(/\s+/)
       
       if (parts.length >= 3) {
@@ -76,30 +133,26 @@ function App() {
         let capacity = ''
         let modelParts = []
 
-        // 解析價格 (最後一項)
         if (!isNaN(parseFloat(parts[parts.length - 1]))) {
             price = parseFloat(parts[parts.length - 1])
         }
 
-        // 解析數量 (倒數第二項)
         if (parts.length >= 2 && !isNaN(parseInt(parts[parts.length - 2]))) {
             qty = parseInt(parts[parts.length - 2])
         }
 
-        // 解析容量 或 Part Number (倒數第三項)
         let modelEndIndex = parts.length - 3
         const secondToLastPart = parts[parts.length - 3]
         
         if (secondToLastPart) {
             const isCapacity = secondToLastPart.toUpperCase().match(/\d+(GB|TB)$/)
-            const isPartNum = /^[A-Z0-9]{6,10}$/i.test(secondToLastPart)
+            // 更新：支援連字號 '-' 且長度 5-15 (例如 SM-F966U)
+            const isPartNum = /^[A-Z0-9-]{5,15}$/i.test(secondToLastPart)
             
             if (isCapacity) {
-                // 真容量 -> 存入 capacity
                 capacity = secondToLastPart
                 modelEndIndex = parts.length - 4
             } else if (isPartNum) {
-                // Part Number -> 不存入 capacity，但調整 model 截取範圍
                 modelEndIndex = parts.length - 4
             }
         }
