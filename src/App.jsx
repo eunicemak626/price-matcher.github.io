@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
@@ -14,80 +14,117 @@ function App() {
   const [isLocked, setIsLocked] = useState(false)
   const [lockedResult, setLockedResult] = useState('')
 
-  // --- 核心清除功能 (使用 useCallback 確保穩定性) ---
-  const clearAll = useCallback(() => {
-    console.log("🚀 觸發清除功能！")
+  // // ==========================================
+  // // 核心解析邏輯 (Tab 優先 + Part Number 修復版)
+  // // ==========================================
 
-    // 1. 清空所有狀態
-    setPriceList('')
-    setProductList('')
-    setMatchResult('')
-    setLockedResult('')
-    setStats({ matched: 0, unmatched: 0, total: 0 })
-    setIsLocked(false)
+  const parsePriceList = (text) => {
+    const lines = text.trim().split('\n')
+    const prices = []
+    let currentCategory = 'DEFAULT'
 
-    // 2. 滾動到頂部
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    const headerKeywords = [
+      'CAP', 'CAPACITY', '容量',
+      'QTY', 'QUANTITY', '數量',
+      'HKD', 'USD', 'CNY', 'RMB', 'PRICE', '人民幣'
+    ]
 
-    // 3. 強制移除輸入框焦點 (避免游標還在閃爍)
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur()
-    }
-  }, [])
+    for (const line of lines) {
+      const trimmed = line.trim()
 
-  // --- 🌟 關鍵修復：全域強制 ESC 監聽器 ---
-  useEffect(() => {
-    const handleGlobalKeyDown = (event) => {
-      // 檢查 1: 如果正在打中文 (IME 輸入法模式)，不要清除
-      if (event.nativeEvent.isComposing) {
-        return
+      const upperLine = trimmed.toUpperCase()
+
+      // 1. 檢查是否為標題行
+      let firstKeywordIndex = -1
+      for (const kw of headerKeywords) {
+        const idx = upperLine.indexOf(kw)
+        if (idx !== -1) {
+          if (firstKeywordIndex === -1 || idx < firstKeywordIndex) {
+            firstKeywordIndex = idx
+          }
+        }
       }
 
-      // 檢查 2: 確認按鍵是 ESC
-      if (event.key === 'Escape') {
-        console.log("⚡ 捕捉到 ESC 鍵")
+      if (firstKeywordIndex !== -1) {
+        const potentialCategory = trimmed.substring(0, firstKeywordIndex).trim()
+        if (potentialCategory.length > 0) {
+          currentCategory = potentialCategory
+        }
+        continue
+      }
 
-        // 阻止瀏覽器預設行為
-        event.preventDefault()
+      // 2. 檢查是否為純類別行
+      const chineseCategories = ['IPAD 原封沒激活', 'IPAD 激活全套有鎖', 'LOCKED', 'UNLOCKED']
+      const isChineseCategory = chineseCategories.some(cat => upperLine.includes(cat))
 
-        // 執行清除
-        clearAll()
+        const parts = trimmed.split(/\s+/)
+        const lastPart = parts[parts.length - 1]
+        if (isNaN(parseFloat(lastPart))) {
+          currentCategory = trimmed
+          continue
+        }
+      }
+
+      // 3. 數據行處理
+      let name = ''
+      let price = ''
+
+      if (trimmed.includes('\t')) {
+        const parts = trimmed.split('\t')
+        price = parts[parts.length - 1].trim()
+        name = parts.slice(0, -1).join(' ').trim()
+      } else {
+        const parts = trimmed.split(/\s+/)
+        if (parts.length >= 2) {
+          price = parts[parts.length - 1].trim()
+          name = parts.slice(0, -1).join(' ').trim()
+        }
+      }
+
+        const fullName = currentCategory !== 'DEFAULT' ? `${currentCategory} ${name}` : name
+        prices.push({
+          originalName: name,
+          fullName: fullName.replace(/\s+/g, ' ').trim(),
+          price: price
+        })
       }
     }
-
-    // ⚠️ 重點：使用 { capture: true }
-    // 這會讓事件在到達 Textarea 之前就被 Window 攔截
-    window.addEventListener('keydown', handleGlobalKeyDown, { capture: true })
-
-    // 清理監聽器
-    return () => {
-      window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true })
-    }
-  }, [clearAll])
+    return prices
+  }
 
   const handleMatch = () => {
     if (isLocked) return
 
-    const prices = priceList.split('\n').filter(line => line.trim())
+    const parsedPrices = parsePriceList(priceList)
     const products = productList.split('\n').filter(line => line.trim())
-
-    const priceMap = new Map()
-    prices.forEach(line => {
-      const parts = line.split('\t')
-      if (parts.length >= 2) {
-        const name = parts[0].trim()
-        const price = parts[1].trim()
-        priceMap.set(name, price)
-      }
-    })
 
     let matchedCount = 0
     let unmatchedCount = 0
+
     const results = products.map(productName => {
-      const name = productName.trim()
-      if (priceMap.has(name)) {
+      const searchName = productName.trim().toUpperCase().replace(/\s+/g, '')
+      
+      // 優先精確匹配 fullName
+      let match = parsedPrices.find(p => 
+        p.fullName.toUpperCase().replace(/\s+/g, '') === searchName
+      )
+
+      // 次優先精確匹配 originalName
+        match = parsedPrices.find(p => 
+          p.originalName.toUpperCase().replace(/\s+/g, '') === searchName
+        )
+      }
+
+      // 最後模糊匹配 (關鍵字包含)
+        match = parsedPrices.find(p => {
+          const pFull = p.fullName.toUpperCase().replace(/\s+/g, '')
+          return pFull.includes(searchName) || searchName.includes(pFull)
+        })
+      }
+
+      if (match) {
         matchedCount++
-        return priceMap.get(name)
+        return match.price
       } else {
         unmatchedCount++
         return 'N/A'
@@ -113,10 +150,17 @@ function App() {
   }
 
   const toggleLock = () => {
-    if (!isLocked) {
       setLockedResult(matchResult)
     }
-    setIsLocked(!isLocked)
+  }
+
+  const clearAll = () => {
+    setPriceList('')
+    setProductList('')
+    setMatchResult('')
+    setLockedResult('')
+    setStats({ matched: 0, unmatched: 0, total: 0 })
+    setIsLocked(false)
   }
 
   return (
@@ -134,7 +178,7 @@ function App() {
               className="flex items-center gap-2"
             >
               <Trash2 className="w-4 h-4" />
-              清除全部 (ESC)
+              清除全部
             </Button>
             <Button 
               variant={isLocked ? "destructive" : "secondary"}
@@ -155,7 +199,7 @@ function App() {
             </CardHeader>
             <CardContent>
               <Textarea
-                placeholder="產品 A	100&#10;產品 B	200"
+                placeholder="產品 App_100&#10;產品 B200"
                 className="h-[300px] font-mono"
                 value={priceList}
                 onChange={(e) => setPriceList(e.target.value)}
@@ -186,7 +230,6 @@ function App() {
             size="lg" 
             className="w-full md:w-64 text-lg h-12"
             onClick={handleMatch}
-            disabled={isLocked || !priceList || !productList}
           >
             開始對比
           </Button>
