@@ -31,6 +31,7 @@ function App() {
 
     for (const line of lines) {
       const trimmed = line.trim()
+      if (!trimmed) continue
 
       const upperLine = trimmed.toUpperCase()
 
@@ -57,6 +58,7 @@ function App() {
       const chineseCategories = ['IPAD 原封沒激活', 'IPAD 激活全套有鎖', 'LOCKED', 'UNLOCKED']
       const isChineseCategory = chineseCategories.some(cat => upperLine.includes(cat))
 
+      if ((!trimmed.includes('\t') && trimmed === upperLine && trimmed.length < 50) || isChineseCategory) {
         const parts = trimmed.split(/\s+/)
         const lastPart = parts[parts.length - 1]
         if (isNaN(parseFloat(lastPart))) {
@@ -81,6 +83,7 @@ function App() {
         }
       }
 
+      if (name && price && !isNaN(parseFloat(price.replace(/,/g, '')))) {
         const fullName = currentCategory !== 'DEFAULT' ? `${currentCategory} ${name}` : name
         prices.push({
           originalName: name,
@@ -110,12 +113,14 @@ function App() {
       )
 
       // 次優先精確匹配 originalName
+      if (!match) {
         match = parsedPrices.find(p => 
           p.originalName.toUpperCase().replace(/\s+/g, '') === searchName
         )
       }
 
       // 最後模糊匹配 (關鍵字包含)
+      if (!match) {
         match = parsedPrices.find(p => {
           const pFull = p.fullName.toUpperCase().replace(/\s+/g, '')
           return pFull.includes(searchName) || searchName.includes(pFull)
@@ -150,8 +155,10 @@ function App() {
   }
 
   const toggleLock = () => {
+    if (!isLocked) {
       setLockedResult(matchResult)
     }
+    setIsLocked(!isLocked)
   }
 
   const clearAll = () => {
@@ -199,7 +206,7 @@ function App() {
             </CardHeader>
             <CardContent>
               <Textarea
-                placeholder="產品 App_100&#10;產品 B200"
+                placeholder="產品 A	100&#10;產品 B	200"
                 className="h-[300px] font-mono"
                 value={priceList}
                 onChange={(e) => setPriceList(e.target.value)}
@@ -230,6 +237,7 @@ function App() {
             size="lg" 
             className="w-full md:w-64 text-lg h-12"
             onClick={handleMatch}
+            disabled={isLocked || !priceList || !productList}
           >
             開始對比
           </Button>
