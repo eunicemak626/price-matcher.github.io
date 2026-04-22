@@ -11,6 +11,7 @@ function App() {
   const [matchResult, setMatchResult] = useState('')
   const [stats, setStats] = useState({ matched: 0, unmatched: 0, total: 0 })
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const [lockedResult, setLockedResult] = useState('')
 
@@ -39,7 +40,10 @@ function App() {
   useEffect(() => {
     const handleGlobalKeyDown = (event) => {
       // 檢查 1: 如果正在打中文 (IME 輸入法模式)，不要清除
-      if (event.nativeEvent.isComposing) {
+      // 🔧 修正：window 上掛的是 native KeyboardEvent，沒有 .nativeEvent
+      //          原本寫 event.nativeEvent.isComposing 會 throw TypeError，
+      //          handler crash → ESC 永遠行唔到下面 clearAll()
+      if (event.isComposing || event.keyCode === 229) {
         return
       }
 
@@ -265,45 +269,80 @@ function App() {
     }
   }, [priceList, productList, isLocked])
 
+  // --- 🌟 可靠嘅複製工具：Clipboard API → execCommand fallback ---
+  // 瀏覽器 Clipboard API 嘅限制：
+  //   1) Chrome/Edge 要求 document.hasFocus() === true
+  //   2) Firefox/Safari 通常仲要 user gesture 未過期
+  // 所以 async useEffect + setTimeout 嘅寫法經常會 silently fail。
+  // 呢個 helper 會先試 Clipboard API，失敗或者 document 冇 focus 時
+  // fallback 去 execCommand('copy')，最後先 set error state 等 UI 可見。
+  const writeTextReliably = useCallback(async (text) => {
+    // 嘗試將 focus 攞返番 window（部分瀏覽器會幫到手）
+    if (typeof window !== 'undefined' && typeof window.focus === 'function') {
+      try { window.focus() } catch (_) { /* ignore */ }
+    }
+
+    // 1) Clipboard API — 只有喺 document focused 時先 reliable
+    if (navigator.clipboard && navigator.clipboard.writeText && document.hasFocus()) {
+      try {
+        await navigator.clipboard.writeText(text)
+        return true
+      } catch (err) {
+        console.warn('Clipboard API failed, falling back to execCommand:', err)
+      }
+    }
+
+    // 2) execCommand('copy') fallback
+    try {
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.setAttribute('readonly', '')
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(textArea)
+      return ok
+    } catch (err) {
+      console.error('execCommand copy failed:', err)
+      return false
+    }
+  }, [])
+
   useEffect(() => {
     if (matchResult) {
       const autoCopy = async () => {
-        try {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(matchResult)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 2000)
-          }
-        } catch (err) { console.error('Auto-copy failed:', err) }
+        const ok = await writeTextReliably(matchResult)
+        if (ok) {
+          setCopied(true)
+          setCopyError(false)
+          setTimeout(() => setCopied(false), 2000)
+        } else {
+          // 🔧 比起 silent console.error，用 state 畀用家知要手動撳「複製結果」
+          setCopyError(true)
+          setCopied(false)
+          setTimeout(() => setCopyError(false), 3000)
+        }
       }
       autoCopy()
     }
-  }, [matchResult])
+  }, [matchResult, writeTextReliably])
 
   // --- UI Actions ---
   const copyToClipboard = async () => {
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(matchResult)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      } else {
-        const textArea = document.createElement('textarea')
-        textArea.value = matchResult
-        textArea.style.position = 'fixed'
-        textArea.style.left = '-999999px'
-        textArea.style.top = '-999999px'
-        document.body.appendChild(textArea)
-        textArea.focus()
-        textArea.select()
-        try {
-          document.execCommand('copy')
-          setCopied(true)
-          setTimeout(() => setCopied(false), 2000)
-        } catch (err) { alert('複製失敗') }
-        document.body.removeChild(textArea)
-      }
-    } catch (err) { alert('複製失敗') }
+    const ok = await writeTextReliably(matchResult)
+    if (ok) {
+      setCopied(true)
+      setCopyError(false)
+      setTimeout(() => setCopied(false), 2000)
+    } else {
+      setCopyError(true)
+      setCopied(false)
+      alert('複製失敗，請手動選取結果再 Ctrl+C / Cmd+C')
+    }
   }
 
   return (
@@ -381,8 +420,8 @@ function App() {
                   <CardDescription className="text-sm text-gray-500">系統已完成自動匹配</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={copyToClipboard} variant="outline" size="sm" className={copied ? 'bg-green-50 border-green-600 text-green-700' : 'border-gray-300'}>
-                    {copied ? <><Check className="w-4 h-4 mr-2" />已複製</> : '複製結果'}
+                  <Button onClick={copyToClipboard} variant="outline" size="sm" className={copied ? 'bg-green-50 border-green-600 text-green-700' : copyError ? 'bg-red-50 border-red-600 text-red-700' : 'border-gray-300'}>
+                    {copied ? <><Check className="w-4 h-4 mr-2" />已複製</> : copyError ? '請手動複製' : '複製結果'}
                   </Button>
                   <Button onClick={clearAll} variant="outline" size="sm" className="border-gray-300 hover:bg-red-50 hover:text-red-700">
                     <Trash2 className="w-4 h-4 mr-2" />清除
