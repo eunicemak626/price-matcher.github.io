@@ -8,6 +8,7 @@ import './App.css'
 // Build timestamp: 2026-04-23T13:18:00+08:00
 
 function App() {
+  const [_buildVersion] = useState('v2026.04.23.1'); // Force new bundle hash
   // Force bundle regeneration
   if (typeof window !== 'undefined') {
     window.__PRICE_MATCHER_BUILD__ = '2026-04-23T13:21:00+08:00'
