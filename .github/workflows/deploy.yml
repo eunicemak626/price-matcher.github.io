@@ -23,11 +23,15 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
-        run: pnpm install
+      - name: Clear all caches
+        run: |
+          rm -rf node_modules
+          rm -rf ~/.pnpm-store
+          rm -rf node_modules/.vite
+          rm -rf dist
 
-      - name: Clear Vite cache
-        run: rm -rf node_modules/.vite dist
+      - name: Install dependencies (force clean)
+        run: pnpm install --force --no-frozen-lockfile
 
       - name: Build
         run: pnpm build
