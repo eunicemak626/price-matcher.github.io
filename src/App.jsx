@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Check, Trash2, Lock, Unlock } from 'lucide-react'
 import './App.css'
 
+// Build timestamp: 2026-04-23T13:18:00+08:00
+
 function App() {
   const [priceList, setPriceList] = useState('')
   const [productList, setProductList] = useState('')
