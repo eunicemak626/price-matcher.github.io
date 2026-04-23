@@ -25,7 +25,7 @@ function App() {
 
   // --- 核心清除功能 (使用 useCallback 確保穩定性) ---
   const clearAll = useCallback(() => {
-    console.log("🚀 觸發清除功能！")
+    console.log("🚀 [v2] 觸發清除功能！")
     
     // 1. 清空所有狀態
     setPriceList('')
@@ -57,7 +57,7 @@ function App() {
 
       // 檢查 2: 確認按鍵是 ESC
       if (event.key === 'Escape') {
-        console.log("⚡️ 捕捉到 ESC 鍵")
+        console.log("⚡️ [v2] 捕捉到 ESC 鍵")
         
         // 阻止瀏覽器預設行為
         event.preventDefault()
