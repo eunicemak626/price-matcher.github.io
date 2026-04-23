@@ -393,7 +393,7 @@ function App() {
             </CardHeader>
             <CardContent>
               <Textarea
-                placeholder="UNLOCKED N/A&#10;IPHONE 15 BLACK&#9;128GB&#9;3&#9;3700"
+                placeholder="貼上你嘅 invoice data&#10;IPHONE 15 BLACK&#9;128GB&#9;3&#9;3700"
                 className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none"
                 value={priceList}
                 onChange={(e) => setPriceList(e.target.value)}
