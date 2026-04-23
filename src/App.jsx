@@ -8,6 +8,11 @@ import './App.css'
 // Build timestamp: 2026-04-23T13:18:00+08:00
 
 function App() {
+  // Force bundle regeneration
+  if (typeof window !== 'undefined') {
+    window.__PRICE_MATCHER_BUILD__ = '2026-04-23T13:21:00+08:00'
+  }
+  
   const [priceList, setPriceList] = useState('')
   const [productList, setProductList] = useState('')
   const [matchResult, setMatchResult] = useState('')
