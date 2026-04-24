@@ -1,3 +1,5 @@
+// BUILD TEST 2026-04-24 11:54 HKT
+console.log('App.jsx loaded - BUILD TEST 2026-04-24 11:54');
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
