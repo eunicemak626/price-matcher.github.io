@@ -1,5 +1,5 @@
-// BUILD TEST 2026-04-24 11:54 HKT
-console.log('App.jsx loaded - BUILD TEST 2026-04-24 11:54');
+// BUILD TEST 2026-04-25 HKT
+console.log('App.jsx loaded - BUILD TEST 2026-04-25');
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
@@ -322,25 +322,6 @@ function App() {
     }
   }, [])
 
-  useEffect(() => {
-    if (matchResult) {
-      const autoCopy = async () => {
-        const ok = await writeTextReliably(matchResult)
-        if (ok) {
-          setCopied(true)
-          setCopyError(false)
-          setTimeout(() => setCopied(false), 2000)
-        } else {
-          // 🔧 比起 silent console.error，用 state 畀用家知要手動撳「複製結果」
-          setCopyError(true)
-          setCopied(false)
-          setTimeout(() => setCopyError(false), 3000)
-        }
-      }
-      autoCopy()
-    }
-  }, [matchResult, writeTextReliably])
-
   // --- UI Actions ---
   const copyToClipboard = async () => {
     const ok = await writeTextReliably(matchResult)
@@ -427,7 +408,7 @@ function App() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                   <CardTitle className="text-lg font-medium text-gray-700">匹配結果</CardTitle>
-                  <CardDescription className="text-sm text-gray-500">系統已完成自動匹配</CardDescription>
+                  <CardDescription className="text-sm text-gray-500">點擊結果框即可全選並複製</CardDescription>
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={copyToClipboard} variant="outline" size="sm" className={copied ? 'bg-green-50 border-green-600 text-green-700' : copyError ? 'bg-red-50 border-red-600 text-red-700' : 'border-gray-300'}>
@@ -440,7 +421,24 @@ function App() {
               </div>
             </CardHeader>
             <CardContent>
-              <Textarea value={matchResult} readOnly className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none" />
+              <Textarea
+                value={matchResult}
+                readOnly
+                className="h-[300px] overflow-y-auto font-mono text-sm bg-white border-gray-300 resize-none cursor-pointer"
+                onClick={async (e) => {
+                  e.target.select()
+                  const ok = await writeTextReliably(matchResult)
+                  if (ok) {
+                    setCopied(true)
+                    setCopyError(false)
+                    setTimeout(() => setCopied(false), 2000)
+                  } else {
+                    setCopyError(true)
+                    setCopied(false)
+                    setTimeout(() => setCopyError(false), 3000)
+                  }
+                }}
+              />
             </CardContent>
           </Card>
         )}
@@ -470,5 +468,4 @@ function App() {
 }
 
 export default App
-// Cache bust 1776915710
-// Force rebuild 1776921007
+// Cache bust 2026-04-25
