@@ -52,7 +52,7 @@ function parseData(text) {
 function findMatch(item, priceData) {
     const { model, storage } = item;
     const isLocked = model.toUpperCase().includes('LOCKED');
-    const hasColor = /\s(ORANGE|SILVER|BLUE|BLACK|WHITE|PINK|PURPLE|GREEN|YELLOW|RED|GOLD|ROSE|TITANIUM|GRAPHITE|MIDNIGHT|STARLIGHT|PRODUCT RED)\s*$/i.test(model);
+    const hasColor = /\s(ORANGE|SILVER|BLUE|BLACK|WHITE|PINK|PURPLE|GREEN|YELLOW|RED|GOLD|ROSE|TITANIUM|GRAPHITE|MIDNIGHT|STARLIGHT|PRODUCT RED|橙色|白色|藍色|黑色|粉色|紫色|綠色|黃色|紅色|金色|玫瑰金|鈦色|石墨色|午夜色|星光色)\s*$/i.test(model);
     
     // 🔥 新邏輯：LOCKED 17 Pro / 17 Pro Max → 必須匹配顏色
     const is17Pro = model.toUpperCase().includes('17 PRO');
@@ -88,7 +88,7 @@ function findMatch(item, priceData) {
 }
 
 function removeColor(text) {
-    return text.replace(/\s(ORANGE|SILVER|BLUE|BLACK|WHITE|PINK|PURPLE|GREEN|YELLOW|RED|GOLD|ROSE|TITANIUM|GRAPHITE|MIDNIGHT|STARLIGHT|PRODUCT RED)\s*$/i, '').trim();
+    return text.replace(/\s(ORANGE|SILVER|BLUE|BLACK|WHITE|PINK|PURPLE|GREEN|YELLOW|RED|GOLD|ROSE|TITANIUM|GRAPHITE|MIDNIGHT|STARLIGHT|PRODUCT RED|橙色|白色|藍色|黑色|粉色|紫色|綠色|黃色|紅色|金色|玫瑰金|鈦色|石墨色|午夜色|星光色)\s*$/i, '').trim();
 }
 
 function normalize(text) {
