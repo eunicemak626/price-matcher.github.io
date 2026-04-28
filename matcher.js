@@ -44,7 +44,7 @@ function parseData(text) {
                 model: parts[0] || '',
                 storage: parts[1] || '',
                 quantity: parts[2] || '1',
-                price: parts[2] || ''
+                price: parts[3] || parts[2] || ''  // Price list 有 4 欄，Summary 有 3 欄
             };
         });
 }
