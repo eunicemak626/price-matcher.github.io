@@ -92,7 +92,33 @@ function removeColor(text) {
 }
 
 function normalize(text) {
-    return text.toUpperCase().replace(/\s+/g, ' ').trim();
+    // 顏色翻譯：中文 → 英文
+    const colorMap = {
+        '橙色': 'ORANGE',
+        '白色': 'SILVER',
+        '藍色': 'BLUE',
+        '黑色': 'BLACK',
+        '粉色': 'PINK',
+        '紫色': 'PURPLE',
+        '綠色': 'GREEN',
+        '黃色': 'YELLOW',
+        '紅色': 'RED',
+        '金色': 'GOLD',
+        '玫瑰金': 'ROSE GOLD',
+        '鈦色': 'TITANIUM',
+        '石墨色': 'GRAPHITE',
+        '午夜色': 'MIDNIGHT',
+        '星光色': 'STARLIGHT'
+    };
+    
+    let normalized = text.toUpperCase().replace(/\s+/g, ' ').trim();
+    
+    // 替換中文顏色為英文
+    for (const [cn, en] of Object.entries(colorMap)) {
+        normalized = normalized.replace(new RegExp(cn, 'g'), en);
+    }
+    
+    return normalized;
 }
 
 function renderResults() {
