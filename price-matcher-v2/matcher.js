@@ -38,13 +38,32 @@ function performMatching() {
 function parseData(text) {
     return text.split('\n')
         .filter(line => line.trim())
+        .filter(line => !isHeaderLine(line))  // 🔥 跳過 header 行
         .map(line => {
-            const parts = line.split('\t').map(p => p.trim());
+            // 自動偵測分隔符：Tab 或多個空格
+            let parts;
+            if (line.includes('\t')) {
+                // 有 Tab → 用 Tab 分隔
+                parts = line.split('\t').map(p => p.trim());
+            } else {
+                // 沒 Tab → 用空格分隔（取最後 3 欄為 storage/quantity/price）
+                const tokens = line.trim().split(/\s+/);
+                if (tokens.length >= 3) {
+                    const price = tokens[tokens.length - 1];
+                    const quantity = tokens[tokens.length - 2];
+                    const storage = tokens[tokens.length - 3];
+                    const model = tokens.slice(0, tokens.length - 3).join(' ');
+                    parts = [model, storage, quantity, price];
+                } else {
+                    parts = tokens;
+                }
+            }
+            
             return {
                 model: parts[0] || '',
                 storage: parts[1] || '',
                 quantity: parts[2] || '1',
-                price: parts[2] || ''
+                price: parts[3] || parts[2] || ''
             };
         });
 }
@@ -91,8 +110,52 @@ function removeColor(text) {
     return text.replace(/\s(ORANGE|SILVER|BLUE|BLACK|WHITE|PINK|PURPLE|GREEN|YELLOW|RED|GOLD|ROSE|TITANIUM|GRAPHITE|MIDNIGHT|STARLIGHT|PRODUCT RED|橙色|白色|藍色|黑色|粉色|紫色|綠色|黃色|紅色|金色|玫瑰金|鈦色|石墨色|午夜色|星光色)\s*$/i, '').trim();
 }
 
+// 🔥 檢測 header 行（包含常見 header 關鍵字）
+function isHeaderLine(line) {
+    const headerKeywords = [
+        '容量', '數量', '價格', '人民幣', 'CAPACITY', 'QUANTITY', 'PRICE', 'RMB',
+        '型號', 'MODEL', '類別', 'CATEGORY', 'PART NUMBER', 'STORAGE',
+        '備註', 'NOTE', 'REMARK', '行號', 'LINE', 'NO.'
+    ];
+    
+    const upperLine = line.toUpperCase();
+    
+    // 如果包含 2 個或以上 header 關鍵字 → 視為 header
+    const matchCount = headerKeywords.filter(keyword => 
+        upperLine.includes(keyword.toUpperCase())
+    ).length;
+    
+    return matchCount >= 2;
+}
+
 function normalize(text) {
-    return text.toUpperCase().replace(/\s+/g, ' ').trim();
+    // 顏色翻譯：中文 → 英文
+    const colorMap = {
+        '橙色': 'ORANGE',
+        '白色': 'SILVER',
+        '藍色': 'BLUE',
+        '黑色': 'BLACK',
+        '粉色': 'PINK',
+        '紫色': 'PURPLE',
+        '綠色': 'GREEN',
+        '黃色': 'YELLOW',
+        '紅色': 'RED',
+        '金色': 'GOLD',
+        '玫瑰金': 'ROSE GOLD',
+        '鈦色': 'TITANIUM',
+        '石墨色': 'GRAPHITE',
+        '午夜色': 'MIDNIGHT',
+        '星光色': 'STARLIGHT'
+    };
+    
+    let normalized = text.toUpperCase().replace(/\s+/g, ' ').trim();
+    
+    // 替換中文顏色為英文
+    for (const [cn, en] of Object.entries(colorMap)) {
+        normalized = normalized.replace(new RegExp(cn, 'g'), en);
+    }
+    
+    return normalized;
 }
 
 function renderResults() {
