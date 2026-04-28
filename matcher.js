@@ -39,12 +39,30 @@ function parseData(text) {
     return text.split('\n')
         .filter(line => line.trim())
         .map(line => {
-            const parts = line.split('\t').map(p => p.trim());
+            // 自動偵測分隔符：Tab 或多個空格
+            let parts;
+            if (line.includes('\t')) {
+                // 有 Tab → 用 Tab 分隔
+                parts = line.split('\t').map(p => p.trim());
+            } else {
+                // 沒 Tab → 用空格分隔（取最後 3 欄為 storage/quantity/price）
+                const tokens = line.trim().split(/\s+/);
+                if (tokens.length >= 3) {
+                    const price = tokens[tokens.length - 1];
+                    const quantity = tokens[tokens.length - 2];
+                    const storage = tokens[tokens.length - 3];
+                    const model = tokens.slice(0, tokens.length - 3).join(' ');
+                    parts = [model, storage, quantity, price];
+                } else {
+                    parts = tokens;
+                }
+            }
+            
             return {
                 model: parts[0] || '',
                 storage: parts[1] || '',
                 quantity: parts[2] || '1',
-                price: parts[3] || parts[2] || ''  // Price list 有 4 欄，Summary 有 3 欄
+                price: parts[3] || parts[2] || ''
             };
         });
 }
