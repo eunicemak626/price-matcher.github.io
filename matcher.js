@@ -36,8 +36,17 @@ function performMatching() {
 }
 
 function parseData(text) {
+    // 🔥 通用 header 關鍵字
+    const headerKeywords = ['CAP', 'CAPACITY', '容量', 'MODEL', '型號', 'QTY', 'QUANTITY', '數量', 'HKD', 'USD', 'CNY', 'RMB', 'PRICE', '價格', '人民幣', 'N/A'];
+    
     return text.split('\n')
         .filter(line => line.trim())
+        .filter(line => {
+            // 跳過 header 行：包含 2+ 個 header 關鍵字
+            const upper = line.toUpperCase();
+            const matchCount = headerKeywords.filter(kw => upper.includes(kw)).length;
+            return matchCount < 2;
+        })
         .map(line => {
             // 自動偵測分隔符：Tab 或多個空格
             let parts;
