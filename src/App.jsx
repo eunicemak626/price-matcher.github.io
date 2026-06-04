@@ -144,12 +144,10 @@ function App() {
       const trimmed = line.trim()
       if (!trimmed) continue
       const upperLine = trimmed.toUpperCase()
-      // 🔥 通用 header 檢測：必須同時有「單位字」+「價錢字」先當 header
-      const unitKeywords = ['CAP', 'CAPACITY', '容量', 'QTY', 'QUANTITY', '數量']
-      const priceKeywords = ['HKD', 'USD', 'CNY', 'RMB', 'PRICE', '價格', '人民幣']
-      const hasUnit = unitKeywords.some(kw => upperLine.includes(kw))
-      const hasPrice = priceKeywords.some(kw => upperLine.includes(kw))
-      const isHeader = hasUnit && hasPrice
+      // 🔥 通用 header 檢測：包含 2+ 個 header 關鍵字 → skip
+      const headerKeywords = ['CAP', 'CAPACITY', '容量', 'MODEL', '型號', 'QTY', 'QUANTITY', '數量', 'HKD', 'USD', 'CNY', 'RMB', 'PRICE', '價格', '人民幣', 'N/A']
+      const headerMatchCount = headerKeywords.filter(kw => upperLine.includes(kw)).length
+      const isHeader = headerMatchCount >= 2
       if (isHeader) {
         const parts = trimmed.split('\t')
         if (parts.length > 1) {
@@ -187,11 +185,10 @@ function App() {
       const trimmed = line.trim()
       if (!trimmed) continue
       const upperLine = trimmed.toUpperCase()
-      // 🔥 通用 header 檢測：必須同時有「單位字」+「價錢字」先當 header
-      const unitKw2 = ['CAP', 'CAPACITY', '容量', 'QTY', 'QUANTITY', '數量']
-      const priceKw2 = ['HKD', 'USD', 'CNY', 'RMB', 'PRICE', '價格', '人民幣']
-      const isHeader2 = unitKw2.some(kw => upperLine.includes(kw)) && priceKw2.some(kw => upperLine.includes(kw))
-      if (isHeader2) continue
+      // 🔥 通用 header 檢測：包含 2+ 個 header 關鍵字 → skip
+      const headerKeywords2 = ['CAP', 'CAPACITY', '容量', 'MODEL', '型號', 'QTY', 'QUANTITY', '數量', 'HKD', 'USD', 'CNY', 'RMB', 'PRICE', '價格', '人民幣', 'N/A']
+      const headerMatchCount2 = headerKeywords2.filter(kw => upperLine.includes(kw)).length
+      if (headerMatchCount2 >= 2) continue
       const chineseCategories = ['IPAD 原封沒激活', 'IPAD 激活全套有鎖']
       if ((!trimmed.includes('\t') && trimmed === trimmed.toUpperCase()) || chineseCategories.includes(trimmed)) {
         currentCategory = trimmed
