@@ -36,6 +36,8 @@ const COLOR_MAP_CN_TO_EN = {
   '青色': 'TEAL',
   '薰衣草': 'LAVENDER',
   '薰衣草色': 'LAVENDER',
+  '冰藍色': 'GLACIER',
+  '酒紅色': 'BURGUNDY',
 }
 
 // 英文顏色 alias（白色 ≡ SILVER 已 map 上面，呢度處理英文輸入嘅 WHITE → SILVER）
